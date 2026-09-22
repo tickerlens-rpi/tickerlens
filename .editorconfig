@@ -1,0 +1,18 @@
+# EditorConfig: https://editorconfig.org
+# Matches the settings `gts init` generates (Google TypeScript Style).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+# Google Python Style Guide uses 4 spaces; kept here for future services.
+[*.py]
+indent_size = 4
