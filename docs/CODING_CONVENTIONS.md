@@ -6,11 +6,11 @@ use, how they are enforced, and where we deliberately deviate.
 
 ## Which guides
 
-| Language                 | Guide                                                                                | Notes                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| TypeScript, JavaScript   | [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)    | Google's JavaScript guide is frozen; Google recommends the TypeScript guide for new code.  |
-| Python (future services) | [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)        | 4-space indent (see `.editorconfig`); use `pylint`/`black`-compatible settings when added. |
-| HTML and CSS             | [Google HTML/CSS Style Guide](https://google.github.io/styleguide/htmlcssguide.html) | Formatting is delegated to Prettier.                                                       |
+| Language               | Guide                                                                                | Notes                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| TypeScript, JavaScript | [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)    | Google's JavaScript guide is frozen; Google recommends the TypeScript guide for new code. |
+| Python                 | [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)        | 4-space indent, 80 columns. See "How the Python guide is enforced" below.                 |
+| HTML and CSS           | [Google HTML/CSS Style Guide](https://google.github.io/styleguide/htmlcssguide.html) | Formatting is delegated to Prettier.                                                      |
 
 ## How the TypeScript guide is enforced
 
@@ -44,6 +44,21 @@ ESLint version in the tree and lets typed rules such as
 `@typescript-eslint/no-floating-promises` use `projectService`. When gts
 publishes ESLint 10 support, the copied block can be replaced with
 `...gts` and the behaviour stays the same.
+
+## How the Python guide is enforced
+
+Python services use [Ruff](https://docs.astral.sh/ruff/) for both linting and
+formatting, configured in each service's `pyproject.toml` (see
+`api/pyproject.toml`):
+
+- `ruff format` is Black-compatible, set to the guide's 80-column limit.
+- `ruff check` runs the pycodestyle, Pyflakes, import-order, naming,
+  bugbear and pyupgrade rules, plus pydocstyle with `convention = "google"`
+  so docstrings follow the guide's `Args:`/`Returns:` layout.
+- Tests sit next to the code as `<name>_test.py`, the guide's naming and the
+  same placement the frontend uses. Run them with `pytest`.
+- Public modules, classes and functions have a docstring. Type-annotate every
+  function signature.
 
 ## The rules in practice
 
@@ -108,7 +123,8 @@ guide is the source of truth.
 
 ## Checklist before opening a pull request
 
-1. `npm run check` passes in `frontend/`.
+1. `npm run check` passes in `frontend/`; `ruff check .`,
+   `ruff format --check .` and `pytest` pass in `api/`.
 2. New behaviour has a test next to it.
 3. Public functions and components have a one-line JSDoc.
 4. No `any`, `@ts-ignore`, `console.log`, or `.only` left behind.
