@@ -1,5 +1,5 @@
 import {SampleOverview} from '../components/sample_overview';
-import {TickerSearch} from '../components/ticker_search';
+import {CompanySearch} from '../components/company_search';
 
 export function Hero() {
   return (
@@ -16,10 +16,11 @@ export function Hero() {
             behind every claim.
           </p>
           <div id="search">
-            <TickerSearch />
+            <CompanySearch />
           </div>
           <p className="hero__hint">
-            Try the sample card: tap any dotted term, or widen the chart to 1Y.
+            Try Apple or NKE. Until real market data is connected, every company
+            page uses sample data.
           </p>
         </div>
         <div className="hero__visual">

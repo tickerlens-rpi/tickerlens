@@ -23,7 +23,7 @@ wired together with a root `docker-compose.yml`.
 
 ## Getting started
 
-Requires Node.js 22.12 or newer.
+Requires Node.js 22.22 or newer (React Router 8 needs it).
 
 ```bash
 cd frontend

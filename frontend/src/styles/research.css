@@ -1,0 +1,779 @@
+/* ==========================================================================
+   TickerLens research pages: the company search, the company page and its
+   empty and error states. Builds on the tokens in global.css.
+
+   The page reads like an annotated ledger sheet: ruled figures, a margin
+   rule beside the AI summary, and the highlighter yellow wherever the reader
+   asks "what does this mean?" or "where did this come from?".
+   ========================================================================== */
+
+/* Company search --------------------------------------------------------- */
+
+.company-search {
+  position: relative;
+  max-width: 34rem;
+}
+
+.company-search__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.company-search__field {
+  position: relative;
+}
+
+.company-search__row {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper-card);
+  box-shadow: 4px 4px 0 var(--marker);
+  transition: box-shadow 0.2s var(--ease-out);
+}
+
+.company-search__row:focus-within {
+  box-shadow: 4px 4px 0 var(--lens);
+}
+
+.company-search__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 0;
+  background: transparent;
+  font-size: var(--text-lg);
+}
+
+.company-search__input:focus {
+  outline: none;
+}
+
+.company-search__input::placeholder {
+  color: var(--ink-3);
+}
+
+.company-search__row .button {
+  margin: 0;
+  border: 0;
+  border-left: 1.5px solid var(--ink);
+  border-radius: 0;
+}
+
+.company-search__row .button:hover {
+  transform: none;
+}
+
+.company-search__options {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  left: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper-card);
+  box-shadow: 0 18px 36px -18px rgb(27 25 21 / 0.55);
+}
+
+.company-search__options[hidden] {
+  display: none;
+}
+
+.company-search__option {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.company-search__option[aria-selected='true'] {
+  background: var(--marker-tint);
+}
+
+/* Suggestions for an earlier query, shown until the current ones arrive. */
+.company-search__option[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.company-search__ticker {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.company-search__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-search__exchange {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.company-search__message {
+  min-height: 1.5em;
+  margin-top: 0.6rem;
+  font-size: var(--text-sm);
+  color: var(--down-ink);
+}
+
+/* In the header the search is a plain field and its message floats below. */
+
+.company-search--compact {
+  width: 100%;
+  max-width: none;
+}
+
+.company-search--compact .company-search__row {
+  border-width: 1px;
+  border-color: var(--rule-strong);
+  box-shadow: none;
+}
+
+.company-search--compact .company-search__row:focus-within {
+  border-color: var(--ink);
+  box-shadow: 3px 3px 0 var(--marker);
+}
+
+.company-search--compact .company-search__input {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.company-search--compact .company-search__message {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 40;
+  min-height: 0;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-card);
+}
+
+.company-search--compact .company-search__message:empty {
+  padding: 0;
+  border: 0;
+}
+
+/* Research header -------------------------------------------------------- */
+
+.site-header__search {
+  flex: 1;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+@media (max-width: 639px) {
+  .site-header__inner {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding-block: 0.6rem;
+  }
+
+  .site-header__search {
+    flex-basis: 100%;
+    order: 3;
+    max-width: none;
+  }
+}
+
+/* Page frame and shared pieces ------------------------------------------- */
+
+.research {
+  padding-block: 1.5rem 4.5rem;
+}
+
+.research__inner {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.research__heading {
+  margin-bottom: 0.75rem;
+  font-size: var(--text-xl);
+}
+
+.research__status,
+.research__empty {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.sample-notice {
+  padding: 0.65rem 0.9rem;
+  border-left: 4px solid var(--marker);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--marker-tint);
+  font-size: var(--text-sm);
+}
+
+.research-disclaimer {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.research-disclaimer--page {
+  margin-top: -0.75rem;
+}
+
+.research-disclaimer--ai {
+  margin-top: 1.1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dotted var(--rule-strong);
+  font-size: var(--text-xs);
+}
+
+/* Quote header ----------------------------------------------------------- */
+
+.quote {
+  display: grid;
+  gap: 1rem 2.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1.5px solid var(--ink);
+}
+
+@media (min-width: 720px) {
+  .quote {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+}
+
+.quote__symbol {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+.quote__name {
+  margin-top: 0.35rem;
+  font-size: var(--text-3xl);
+}
+
+.quote__price {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+@media (min-width: 720px) {
+  .quote__price {
+    justify-items: end;
+    text-align: right;
+  }
+}
+
+.quote__value {
+  font-size: clamp(2.5rem, 1.8rem + 2.4vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.quote__changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.change [aria-hidden='true'] {
+  font-size: 0.6em;
+}
+
+.change--up {
+  color: var(--up-ink);
+  background: color-mix(in srgb, var(--up) 10%, transparent);
+}
+
+.change--down {
+  color: var(--down-ink);
+  background: color-mix(in srgb, var(--down) 10%, transparent);
+}
+
+.change--flat {
+  color: var(--ink-2);
+  background: var(--paper-deep);
+}
+
+.quote__updated {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+/* Key figures: a ruled ledger, one explanation open at a time ------------ */
+
+.figures__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.25rem, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.figures__item {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  padding: 0.85rem 0.9rem 0.9rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.figures__item dd {
+  margin: 0;
+}
+
+.figures__label {
+  padding: 0 0.05em;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  text-align: left;
+  text-decoration: underline dotted var(--lens);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25em;
+  transition: background-color 0.15s;
+}
+
+.figures__label:hover,
+.figures__label[aria-expanded='true'] {
+  background: var(--marker-tint);
+  color: var(--ink);
+  text-decoration-color: var(--ink);
+}
+
+.figures__value {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.figures__explainer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 46rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  box-shadow: 0 12px 24px -12px rgb(27 25 21 / 0.6);
+  animation: rise 0.3s var(--ease-out) both;
+}
+
+.figures__explainer[hidden] {
+  display: none;
+}
+
+.figures__explainer-title {
+  color: var(--marker);
+}
+
+.figures__close {
+  flex: none;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgb(245 240 230 / 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--paper);
+  font-size: var(--text-xs);
+}
+
+.figures__close:hover {
+  background: rgb(245 240 230 / 0.14);
+}
+
+/* Layout below the figures ----------------------------------------------- */
+
+.research__grid {
+  display: grid;
+  grid-template-areas:
+    'chart'
+    'summary'
+    'news';
+  gap: 2rem;
+}
+
+@media (min-width: 980px) {
+  .research__grid {
+    grid-template-areas:
+      'chart summary'
+      'news summary';
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 2rem 2.5rem;
+  }
+}
+
+.chart {
+  grid-area: chart;
+}
+
+.summary {
+  grid-area: summary;
+}
+
+.news {
+  grid-area: news;
+}
+
+/* Price chart ------------------------------------------------------------ */
+
+.chart {
+  padding: 1.1rem 1.25rem 1rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-card);
+}
+
+.chart__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.chart__head .research__heading {
+  margin: 0;
+}
+
+.chart__summary {
+  margin-top: 0.35rem;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.chart__summary strong {
+  color: var(--ink);
+}
+
+.chart__frame {
+  margin-top: 0.5rem;
+  transition: opacity 0.2s;
+}
+
+.chart__frame[data-loading] {
+  opacity: 0.5;
+}
+
+.chart__plot {
+  position: relative;
+}
+
+.chart__svg {
+  overflow: visible;
+}
+
+.chart__grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.chart__tick {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  fill: var(--ink-2);
+}
+
+.chart__area {
+  fill: color-mix(in srgb, var(--series-price) 10%, transparent);
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--series-price);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart__dot {
+  fill: var(--series-price);
+  stroke: var(--paper-card);
+  stroke-width: 2;
+}
+
+.chart__end-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.chart__crosshair line {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.chart__crosshair circle {
+  fill: var(--paper-card);
+  stroke: var(--series-price);
+  stroke-width: 2;
+}
+
+.chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.chart__tooltip--start {
+  transform: translate(0, calc(-100% - 12px));
+}
+
+.chart__tooltip--end {
+  transform: translate(-100%, calc(-100% - 12px));
+}
+
+.chart__tooltip strong {
+  font-size: var(--text-sm);
+}
+
+.chart__scrubber {
+  position: absolute;
+  border-radius: 2px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.chart__scrubber:focus-visible {
+  outline-offset: 2px;
+}
+
+.chart__table-toggle {
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.chart__table-toggle:hover {
+  color: var(--ink);
+}
+
+.chart__table-wrap {
+  max-height: 18rem;
+  margin-top: 0.5rem;
+  overflow: auto;
+  border-top: 1px solid var(--rule);
+}
+
+.chart__table-wrap[hidden] {
+  display: none;
+}
+
+.chart__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__table caption {
+  padding: 0.5rem 0;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.chart__table th,
+.chart__table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+.chart__table th:last-child,
+.chart__table td:last-child {
+  text-align: right;
+}
+
+/* What's happening: the AI summary with its sources ---------------------- */
+
+.summary {
+  padding: 1.1rem 1.25rem 1.1rem 1.4rem;
+  border-left: 3px solid var(--lens);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--paper-card);
+}
+
+.summary__intro {
+  margin-top: -0.35rem;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.summary__bullets {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary__bullet {
+  position: relative;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.summary__bullet::before {
+  content: '';
+  position: absolute;
+  top: 0.6em;
+  left: 0;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--lens);
+}
+
+.source__tag {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+  vertical-align: 0.1em;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.source__tag:hover,
+.source__tag[aria-expanded='true'] {
+  border-color: var(--ink);
+  background: var(--marker-tint);
+  color: var(--ink);
+}
+
+.source__slip {
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--marker);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--paper);
+  animation: rise 0.3s var(--ease-out) both;
+}
+
+.source__slip[hidden] {
+  display: none;
+}
+
+.source__headline {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  line-height: 1.3;
+}
+
+.source__meta {
+  margin-top: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.source__link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--lens-deep);
+}
+
+/* Latest news ------------------------------------------------------------ */
+
+.news__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1.5px solid var(--ink);
+}
+
+.news__item {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.news__headline {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.news__headline:hover {
+  text-decoration: underline;
+}
+
+.news__meta {
+  margin-top: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+/* Not found and error states --------------------------------------------- */
+
+.research__missing {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+  padding-block: 2rem;
+}
+
+.research__missing-title {
+  font-size: var(--text-2xl);
+}

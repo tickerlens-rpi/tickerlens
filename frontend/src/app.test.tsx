@@ -1,8 +1,21 @@
 import {render, screen, within} from '@testing-library/react';
+import {MemoryRouter} from 'react-router';
 import {describe, expect, it} from 'vitest';
-import {App} from './app';
+import {App, AppRoutes} from './app';
 import {FEATURES} from './content/features';
 import {STEPS} from './content/steps';
+import {ResearchClientContext} from './data/research_context';
+import {SampleResearchClient} from './data/sample_research_client';
+
+function renderAt(route: string) {
+  return render(
+    <ResearchClientContext value={new SampleResearchClient()}>
+      <MemoryRouter initialEntries={[route]}>
+        <AppRoutes />
+      </MemoryRouter>
+    </ResearchClientContext>,
+  );
+}
 
 describe('App', () => {
   it('renders the landing page headline', () => {
@@ -37,5 +50,32 @@ describe('App', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('puts the company search on the landing page', () => {
+    render(<App />);
+    expect(
+      screen.getByRole('combobox', {name: 'Search a company or ticker'}),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('AppRoutes', () => {
+  it('opens a company page at /company/:ticker', async () => {
+    renderAt('/company/NKE');
+    expect(
+      await screen.findByRole('heading', {level: 1, name: 'Nike, Inc.'}),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('search')).toBeInTheDocument();
+  });
+
+  it('shows a not-found page for any other address', () => {
+    renderAt('/no-such-page');
+    expect(
+      screen.getByRole('heading', {level: 1, name: 'This page does not exist'}),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {name: 'TickerLens home page'}),
+    ).toHaveAttribute('href', '/');
   });
 });
