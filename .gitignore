@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
 # Build output and reports
 dist/
 build/
