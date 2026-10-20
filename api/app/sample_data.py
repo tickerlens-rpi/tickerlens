@@ -16,5 +16,9 @@ SAMPLE_COMPANIES: tuple[Company, ...] = (
     Company(ticker="NVDA", name="NVIDIA Corporation", exchange="NASDAQ"),
     Company(ticker="SBUX", name="Starbucks Corporation", exchange="NASDAQ"),
     Company(ticker="TSLA", name="Tesla, Inc.", exchange="NASDAQ"),
-    Company(ticker="SPCX", name="Space Exploration Technologies Corp.", exchange="NASDAQ")
+    Company(
+        ticker="SPCX",
+        name="Space Exploration Technologies Corp.",
+        exchange="NASDAQ",
+    ),
 )
