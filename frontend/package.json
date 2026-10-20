@@ -5,7 +5,7 @@
   "description": "TickerLens web frontend: the landing page today, the stock research UI next.",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.22"
   },
   "scripts": {
     "dev": "vite",
