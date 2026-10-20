@@ -78,7 +78,7 @@ describe('CompanySearch', () => {
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
 
     await user.keyboard('{Enter}');
-    expect(currentPath()).toHaveTextContent('/');
+    expect(currentPath()).toHaveTextContent(/^\/$/);
   });
 
   it('asks for a name or ticker when submitted empty', async () => {
@@ -127,6 +127,41 @@ describe('CompanySearch', () => {
       await screen.findByRole('option', {name: /Nike, Inc\./}),
     ).toBeInTheDocument();
     expect(screen.queryByText(/unavailable/)).not.toBeInTheDocument();
+  });
+
+  it('never opens a suggestion left over from an earlier query', async () => {
+    const user = userEvent.setup();
+    const client = new SampleResearchClient();
+    const search = client.searchCompanies.bind(client);
+    let finishNikeSearch: () => void = () => {};
+    const nikeSearch = new Promise<void>(resolve => {
+      finishNikeSearch = resolve;
+    });
+    // The search for "nike" is slow; every other search answers at once.
+    vi.spyOn(client, 'searchCompanies').mockImplementation(async query => {
+      if (query === 'nike') {
+        await nikeSearch;
+      }
+      return search(query);
+    });
+    renderWithProviders(<CompanySearch />, {client});
+    const input = screen.getByRole('combobox');
+
+    await user.type(input, 'apple');
+    await screen.findByRole('option', {name: /Apple Inc\./});
+    await user.clear(input);
+    await user.type(input, 'nike');
+
+    const stale = screen.getByRole('option', {name: /Apple Inc\./});
+    expect(stale).toHaveAttribute('aria-disabled', 'true');
+    await user.click(stale);
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(currentPath()).toHaveTextContent(/^\/$/);
+
+    finishNikeSearch();
+    await waitFor(() =>
+      expect(currentPath()).toHaveTextContent('/company/NKE'),
+    );
   });
 
   it('closes the suggestions on Escape', async () => {

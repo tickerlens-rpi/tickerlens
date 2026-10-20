@@ -101,6 +101,12 @@
   background: var(--marker-tint);
 }
 
+/* Suggestions for an earlier query, shown until the current ones arrive. */
+.company-search__option[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
 .company-search__ticker {
   font-family: var(--font-mono);
   font-weight: 500;

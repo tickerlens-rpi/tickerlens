@@ -56,10 +56,13 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
   } else if (suggestions.status === 'loading') {
     companies = suggestions.previous ?? [];
   }
+  // Suggestions for an earlier query stay on screen while the current ones
+  // load, so the list does not flicker, but they cannot be chosen: picking
+  // "Apple" after typing "nike" would open the wrong company.
   const upToDate = debounced === trimmed && suggestions.status === 'ready';
   const showList = open && trimmed !== '' && companies.length > 0;
   const activeIndex =
-    highlight.query === trimmed
+    upToDate && highlight.query === trimmed
       ? Math.min(highlight.index, companies.length - 1)
       : -1;
 
@@ -198,6 +201,7 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
           className="company-search__options"
           role="listbox"
           aria-label="Matching companies"
+          aria-busy={!upToDate}
           hidden={!showList}
           // Keep focus in the input while a suggestion is clicked.
           onMouseDown={event => event.preventDefault()}
@@ -209,8 +213,17 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
               className="company-search__option"
               role="option"
               aria-selected={index === activeIndex}
-              onMouseMove={() => setHighlight({query: trimmed, index})}
-              onClick={() => choose(company)}
+              aria-disabled={!upToDate || undefined}
+              onMouseMove={() => {
+                if (upToDate) {
+                  setHighlight({query: trimmed, index});
+                }
+              }}
+              onClick={() => {
+                if (upToDate) {
+                  choose(company);
+                }
+              }}
             >
               <span className="company-search__ticker">{company.ticker}</span>
               <span className="company-search__name">{company.name}</span>
