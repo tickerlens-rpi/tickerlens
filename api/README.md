@@ -19,6 +19,18 @@ Then open http://localhost:8000/docs for interactive documentation generated
 from the code. The same schema is served as JSON at `/openapi.json`; it is the
 contract the frontend builds against.
 
+### Run with Docker
+
+Requires Docker; Python and FastAPI do not need to be installed on your
+computer. From the repository root:
+
+```powershell
+docker build -t tickerlens-api ./api
+docker run --rm -p 8000:8000 tickerlens-api
+```
+
+Then open http://localhost:8000/docs.
+
 | Command                 | What it does                         |
 | ----------------------- | ------------------------------------ |
 | `pytest`                | Run the tests                        |

@@ -1,0 +1,18 @@
+services:
+  frontend:
+    build: ./frontend
+    image: frontend-image
+    container_name: frontend-container
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    image: api-image
+    container_name: api-container
+    expose:
+      - "8000"
+    restart: unless-stopped
