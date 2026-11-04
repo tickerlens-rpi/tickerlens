@@ -38,7 +38,13 @@ export interface ProviderInfo {
   keyPlaceholder: string;
   keysUrl: string;
   billingUrl: string;
+  /** The developer site where keys and API credit are managed. */
+  consoleHost: string;
+  /** What the user's existing chat account is called, to contrast with it. */
+  chatAccount: string;
   defaultModel: string;
+  /** Rough cost of one question with the default model, in plain words. */
+  costHint: string;
 }
 
 export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
@@ -49,7 +55,10 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     keyPlaceholder: 'sk-ant-…',
     keysUrl: 'https://console.anthropic.com/settings/keys',
     billingUrl: 'https://console.anthropic.com/settings/billing',
+    consoleHost: 'console.anthropic.com',
+    chatAccount: 'Claude Pro or Max plan',
     defaultModel: 'claude-opus-5-5',
+    costHint: 'usually 2 to 10 cents per question',
   },
   openai: {
     label: 'OpenAI',
@@ -58,9 +67,44 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     keyPlaceholder: 'sk-…',
     keysUrl: 'https://platform.openai.com/api-keys',
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
+    consoleHost: 'platform.openai.com',
+    chatAccount: 'ChatGPT Plus or Pro plan',
     defaultModel: 'gpt-5',
+    costHint: 'usually a few cents per question',
   },
 };
+
+const MODEL_WORDS: Record<string, string> = {
+  gpt: 'GPT',
+  chatgpt: 'ChatGPT',
+  mini: 'mini',
+  nano: 'nano',
+};
+
+/**
+ * Turns a model ID into something a person can read:
+ * `claude-opus-5-5` → `Claude Opus 5.5`, `gpt-5-mini` → `GPT-5 mini`.
+ */
+export function modelDisplayName(id: string): string {
+  const claude = /^claude-([a-z]+)-(\d+)(?:-(\d+))?$/.exec(id);
+  if (claude) {
+    const [, family, major, minor] = claude;
+    const name = family.charAt(0).toUpperCase() + family.slice(1);
+    return `Claude ${name} ${minor ? `${major}.${minor}` : major}`;
+  }
+  const gpt = /^(gpt|chatgpt)-([\d.o]+)(?:-(.*))?$/.exec(id);
+  if (gpt) {
+    const [, brand, version, rest] = gpt;
+    const suffix = rest
+      ? ` ${rest
+          .split('-')
+          .map(word => MODEL_WORDS[word] ?? word)
+          .join(' ')}`
+      : '';
+    return `${MODEL_WORDS[brand]}-${version}${suffix}`;
+  }
+  return id;
+}
 
 /** Type guard for provider names read from storage. */
 export function isAiProvider(value: unknown): value is AiProvider {

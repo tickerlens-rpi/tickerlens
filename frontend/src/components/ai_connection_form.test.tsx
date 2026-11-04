@@ -22,7 +22,7 @@ describe('AiConnectionForm', () => {
     render(<AiConnectionForm />);
 
     await user.type(screen.getByLabelText('Anthropic API key'), 'sk-proj-abc');
-    await user.click(screen.getByRole('button', {name: 'Verify and save'}));
+    await user.click(screen.getByRole('button', {name: 'Connect'}));
 
     expect(screen.getByRole('status')).toHaveTextContent(
       /does not look like an Anthropic key/,
@@ -42,9 +42,9 @@ describe('AiConnectionForm', () => {
       screen.getByLabelText('Anthropic API key'),
       'sk-ant-api03-secret',
     );
-    await user.click(screen.getByRole('button', {name: 'Verify and save'}));
+    await user.click(screen.getByRole('button', {name: 'Connect'}));
 
-    expect(await screen.findByText(/Key verified and saved/)).toBeVisible();
+    expect(await screen.findByText(/Your key works/)).toBeVisible();
     expect(listModels).toHaveBeenCalledWith(
       'anthropic',
       'sk-ant-api03-secret',
@@ -65,11 +65,11 @@ describe('AiConnectionForm', () => {
 
     await user.click(screen.getByRole('radio', {name: /ChatGPT/}));
     await user.type(screen.getByLabelText('OpenAI API key'), 'sk-proj-abc');
-    await user.click(screen.getByRole('button', {name: 'Verify and save'}));
+    await user.click(screen.getByRole('button', {name: 'Connect'}));
 
-    await screen.findByText(/Key verified and saved/);
+    await screen.findByText(/Your key works/);
     expect(readConnection()?.model).toBe('gpt-x');
-    expect(screen.getByLabelText('Model')).toHaveValue('gpt-x');
+    expect(screen.getByLabelText('AI model')).toHaveValue('gpt-x');
   });
 
   it('keeps tab-only keys out of localStorage', async () => {
@@ -79,9 +79,9 @@ describe('AiConnectionForm', () => {
 
     await user.type(screen.getByLabelText('Anthropic API key'), 'sk-ant-k');
     await user.click(screen.getByRole('radio', {name: /This tab only/}));
-    await user.click(screen.getByRole('button', {name: 'Verify and save'}));
+    await user.click(screen.getByRole('button', {name: 'Connect'}));
 
-    await screen.findByText(/Key verified and saved/);
+    await screen.findByText(/Your key works/);
     expect(localStorage.getItem(AI_CONNECTION_KEY)).toBeNull();
     expect(sessionStorage.getItem(AI_CONNECTION_KEY)).toContain('sk-ant-k');
   });
@@ -92,12 +92,15 @@ describe('AiConnectionForm', () => {
     render(<AiConnectionForm />);
 
     await user.type(screen.getByLabelText('Anthropic API key'), 'sk-ant-bad');
-    await user.click(screen.getByRole('button', {name: 'Verify and save'}));
+    await user.click(screen.getByRole('button', {name: 'Connect'}));
 
     expect(
-      await screen.findByText(/rejected this API key/),
+      await screen.findByText(/did not accept this key/),
     ).toBeInTheDocument();
     expect(readConnection()).toBeUndefined();
+    const keyInput = screen.getByLabelText('Anthropic API key');
+    expect(keyInput).toHaveAttribute('aria-invalid', 'true');
+    expect(keyInput).toHaveFocus();
   });
 
   it('forgets a saved key', async () => {

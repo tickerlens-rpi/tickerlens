@@ -1,6 +1,6 @@
 import {useId, useRef, useState} from 'react';
-import type {FormEvent} from 'react';
-import {describeAiError, listModels} from '../lib/ai/chat';
+import type {FormEvent, ReactNode} from 'react';
+import {AiError, describeAiError, listModels} from '../lib/ai/chat';
 import type {ModelOption} from '../lib/ai/chat';
 import {
   AI_PROVIDERS,
@@ -8,6 +8,7 @@ import {
   checkApiKey,
   forgetConnection,
   maskApiKey,
+  modelDisplayName,
   saveConnection,
 } from '../lib/ai/connection';
 import type {
@@ -20,9 +21,9 @@ import type {
 type FormStatus =
   | {kind: 'idle'}
   | {kind: 'checking'}
-  | {kind: 'saved'; modelCount: number; modelReplaced?: string}
+  | {kind: 'saved'; modelReplaced?: string}
   | {kind: 'forgotten'}
-  | {kind: 'error'; message: string};
+  | {kind: 'error'; message: string; keyProblem: boolean};
 
 const KEY_PROBLEMS: Record<KeyProblem, (provider: AiProvider) => string> = {
   empty: () => 'Paste your API key first.',
@@ -40,17 +41,61 @@ const PERSISTENCE_OPTIONS: ReadonlyArray<{
   {
     value: 'device',
     label: 'Remember on this computer',
-    hint: 'Saved in this browser’s local storage until you remove it.',
+    hint: 'Best for your own computer. Stays until you remove it.',
   },
   {
     value: 'session',
     label: 'This tab only',
-    hint: 'Forgotten as soon as you close this tab.',
+    hint: 'For shared or school computers. Forgotten when you close this tab.',
   },
 ];
 
+/** Step-by-step help for getting a key from each provider. */
+const KEY_STEPS: Record<AiProvider, ReactNode[]> = {
+  anthropic: [
+    <>
+      Sign in at{' '}
+      <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">
+        console.anthropic.com
+      </a>
+      . This developer account is separate from the Claude chat app, but you can
+      use the same email.
+    </>,
+    <>
+      Open <strong>Billing</strong> and add a small amount of credit, for
+      example $5. API use is prepaid.
+    </>,
+    <>
+      Open <strong>API keys</strong>, choose <strong>Create key</strong> and
+      name it “TickerLens”.
+    </>,
+    <>Copy the key and paste it below. It is only shown once.</>,
+  ],
+  openai: [
+    <>
+      Sign in at{' '}
+      <a href="https://platform.openai.com" target="_blank" rel="noreferrer">
+        platform.openai.com
+      </a>
+      . This developer account is separate from the ChatGPT app, but you can use
+      the same login.
+    </>,
+    <>
+      Open <strong>Settings → Billing</strong> and add a small amount of credit,
+      for example $5. API use is prepaid.
+    </>,
+    <>
+      Open <strong>API keys</strong>, choose{' '}
+      <strong>Create new secret key</strong> and name it “TickerLens”.
+    </>,
+    <>Copy the key and paste it below. It is only shown once.</>,
+  ],
+};
+
 interface AiConnectionFormProps {
   connection?: AiConnection;
+  /** Shown after a successful save, for example a link onward. */
+  savedAction?: ReactNode;
 }
 
 /**
@@ -58,11 +103,13 @@ interface AiConnectionFormProps {
  * checked by calling the provider directly from the browser (listing models,
  * which costs nothing) and then saved in this browser only.
  */
-export function AiConnectionForm({connection}: AiConnectionFormProps) {
+export function AiConnectionForm({
+  connection,
+  savedAction,
+}: AiConnectionFormProps) {
   const keyId = useId();
   const keyHintId = useId();
   const modelId = useId();
-  const modelListId = useId();
   const statusId = useId();
   const [provider, setProvider] = useState<AiProvider>(
     connection?.provider ?? 'anthropic',
@@ -78,8 +125,11 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
   const [models, setModels] = useState<ModelOption[]>([]);
   const [status, setStatus] = useState<FormStatus>({kind: 'idle'});
   const abortRef = useRef<AbortController | undefined>(undefined);
+  const keyRef = useRef<HTMLInputElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const info = PROVIDERS[provider];
   const checking = status.kind === 'checking';
+  const keyInvalid = status.kind === 'error' && status.keyProblem;
 
   function chooseProvider(next: AiProvider) {
     if (next === provider) {
@@ -96,16 +146,25 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
     }
   }
 
+  function fail(message: string, keyProblem: boolean) {
+    setStatus({kind: 'error', message, keyProblem});
+    if (keyProblem) {
+      keyRef.current?.focus();
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (checking) {
+      return;
+    }
     const key = apiKey.trim();
     const problem = checkApiKey(provider, key);
     if (problem) {
-      setStatus({kind: 'error', message: KEY_PROBLEMS[problem](provider)});
+      fail(KEY_PROBLEMS[problem](provider), true);
       return;
     }
 
-    abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setStatus({kind: 'checking'});
@@ -124,20 +183,22 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
         persistence,
       });
       if (!saved) {
-        setStatus({
-          kind: 'error',
-          message:
-            'Your browser would not let TickerLens save the key. Storage may be full or blocked by privacy settings.',
-        });
+        fail(
+          'Your browser would not let TickerLens save the key. Storage may be full or blocked by privacy settings.',
+          false,
+        );
         return;
       }
       setApiKey(key);
       setModel(chosen);
       setModels(available);
-      setStatus({kind: 'saved', modelCount: available.length, modelReplaced});
+      setStatus({kind: 'saved', modelReplaced});
     } catch (error) {
       if (!controller.signal.aborted) {
-        setStatus({kind: 'error', message: describeAiError(error)});
+        const keyProblem =
+          error instanceof AiError &&
+          (error.kind === 'auth' || error.kind === 'permission');
+        fail(describeAiError(error, provider), keyProblem);
       }
     }
   }
@@ -149,12 +210,16 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
     setModels([]);
     setShowKey(false);
     setStatus({kind: 'forgotten'});
+    // The button that had focus is about to disappear; keep focus nearby.
+    statusRef.current?.focus();
   }
+
+  const connected = connection !== undefined && status.kind !== 'forgotten';
 
   return (
     <form className="settings-form" onSubmit={handleSubmit} noValidate>
       <fieldset className="field">
-        <legend className="field__label">AI provider</legend>
+        <legend className="field__label">Which AI do you use?</legend>
         <div className="provider-options">
           {AI_PROVIDERS.map(option => (
             <label key={option} className="provider-option">
@@ -176,6 +241,22 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
         </div>
       </fieldset>
 
+      <details className="key-help" open={!connection}>
+        <summary>How do I get a key? (about 3 minutes)</summary>
+        <ol className="key-help__steps">
+          {KEY_STEPS[provider].map((step, index) => (
+            <li key={index}>{step}</li>
+          ))}
+        </ol>
+        <p className="key-help__tip">
+          <strong>Tip:</strong> set a monthly spending limit on the{' '}
+          <a href={info.billingUrl} target="_blank" rel="noreferrer">
+            {info.label} billing page
+          </a>{' '}
+          so you are never charged more than you expect.
+        </p>
+      </details>
+
       <div className="field">
         <label className="field__label" htmlFor={keyId}>
           {info.label} API key
@@ -183,6 +264,7 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
         <div className="key-input">
           <input
             id={keyId}
+            ref={keyRef}
             className="text-input text-input--mono"
             type={showKey ? 'text' : 'password'}
             autoComplete="off"
@@ -190,7 +272,10 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
             placeholder={info.keyPlaceholder}
             value={apiKey}
             onChange={event => setApiKey(event.target.value)}
-            aria-describedby={keyHintId}
+            aria-invalid={keyInvalid}
+            aria-describedby={
+              keyInvalid ? `${statusId} ${keyHintId}` : keyHintId
+            }
           />
           <button
             type="button"
@@ -202,40 +287,8 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
           </button>
         </div>
         <p className="field__hint" id={keyHintId}>
-          Create one at{' '}
-          <a href={info.keysUrl} target="_blank" rel="noreferrer">
-            {new URL(info.keysUrl).host}
-          </a>
-          . API use is billed by {info.label} to your account, separately from
-          any {info.product} subscription.
-        </p>
-      </div>
-
-      <div className="field">
-        <label className="field__label" htmlFor={modelId}>
-          Model
-        </label>
-        <input
-          id={modelId}
-          className="text-input text-input--mono"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          list={modelListId}
-          value={model}
-          onChange={event => setModel(event.target.value)}
-        />
-        <datalist id={modelListId}>
-          {models.map(option => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </datalist>
-        <p className="field__hint">
-          {models.length > 0
-            ? `${models.length} models available to your key. Start typing to pick one.`
-            : 'Your key’s models load after you verify it.'}
+          You pay {info.label} directly for what you use, {info.costHint} with
+          the default model. This is separate from any {info.chatAccount}.
         </p>
       </div>
 
@@ -258,32 +311,88 @@ export function AiConnectionForm({connection}: AiConnectionFormProps) {
         ))}
       </fieldset>
 
+      <details className="advanced">
+        <summary>Advanced (optional)</summary>
+        <div className="field">
+          <label className="field__label" htmlFor={modelId}>
+            AI model
+          </label>
+          {models.length > 0 ? (
+            <select
+              id={modelId}
+              className="text-input"
+              value={model}
+              onChange={event => setModel(event.target.value)}
+            >
+              {models.map(option => (
+                <option key={option.id} value={option.id}>
+                  {option.label === option.id
+                    ? modelDisplayName(option.id)
+                    : option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={modelId}
+              className="text-input text-input--mono"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={model}
+              onChange={event => setModel(event.target.value)}
+            />
+          )}
+          <p className="field__hint">
+            Which version of {info.product} answers your questions. The default,{' '}
+            {modelDisplayName(info.defaultModel)}, is a good balance of quality
+            and cost; you do not need to change it.
+            {models.length === 0 &&
+              ' After you verify your key you can pick from the models it can use.'}
+          </p>
+        </div>
+      </details>
+
       <div className="settings-form__actions">
         <button
           type="submit"
           className="button button--primary"
-          disabled={checking}
-          aria-describedby={statusId}
+          aria-disabled={checking}
         >
-          {checking ? 'Checking…' : 'Verify and save'}
+          {checking ? 'Checking…' : connected ? 'Save changes' : 'Connect'}
         </button>
-        {connection && (
+        {connected && (
           <button type="button" className="button" onClick={handleForget}>
             Disconnect and forget key
           </button>
         )}
       </div>
 
-      <p
-        id={statusId}
-        className={`settings-form__status settings-form__status--${status.kind}`}
-        role="status"
-        aria-live="polite"
-      >
-        {statusMessage(status, connection)}
-      </p>
+      <div className="settings-form__result">
+        <p
+          id={statusId}
+          ref={statusRef}
+          tabIndex={-1}
+          className={`settings-form__status settings-form__status--${statusTone(status, connected)}`}
+          role="status"
+          aria-live="polite"
+        >
+          {status.kind === 'idle' && (
+            <span className="status-dot" aria-hidden="true" />
+          )}
+          {statusMessage(status, connection)}
+        </p>
+        {status.kind === 'saved' && savedAction}
+      </div>
     </form>
   );
+}
+
+function statusTone(status: FormStatus, connected: boolean): string {
+  if (status.kind === 'idle') {
+    return connected ? 'connected' : 'idle';
+  }
+  return status.kind;
 }
 
 function statusMessage(
@@ -293,18 +402,23 @@ function statusMessage(
   switch (status.kind) {
     case 'idle':
       return connection
-        ? `Connected to ${PROVIDERS[connection.provider].product} with key ${maskApiKey(connection.apiKey)}.`
-        : 'Not connected.';
+        ? `Connected to ${PROVIDERS[connection.provider].product} (${modelDisplayName(connection.model)}) with key ${maskApiKey(connection.apiKey)}.`
+        : 'Not connected yet.';
     case 'checking':
-      return 'Checking the key with the provider…';
+      return 'Checking your key with the provider…';
     case 'saved': {
-      const replaced = status.modelReplaced
-        ? ` “${status.modelReplaced}” is not available to this key, so ${connection?.model ?? 'another model'} was selected instead.`
-        : '';
-      return `Key verified and saved in this browser.${replaced}`;
+      const replaced =
+        status.modelReplaced && connection
+          ? ` ${modelDisplayName(status.modelReplaced)} is not available to this key, so ${modelDisplayName(connection.model)} was chosen instead.`
+          : '';
+      const where =
+        connection?.persistence === 'session'
+          ? 'kept in this tab only'
+          : 'saved on this computer';
+      return `Connected. Your key works and is ${where}.${replaced}`;
     }
     case 'forgotten':
-      return 'Disconnected. The key has been deleted from this browser.';
+      return 'Disconnected. Your key has been deleted from this computer.';
     case 'error':
       return status.message;
     default: {

@@ -77,7 +77,28 @@ describe('ResearchChat', () => {
 
     await user.type(screen.getByRole('textbox'), 'Hi{Enter}');
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/rate-limiting/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Too many questions/,
+    );
+    // The unanswered question goes back into the box for a retry.
+    expect(screen.getByRole('textbox')).toHaveValue('Hi');
+    expect(
+      screen.queryByRole('list', {name: 'Conversation'}),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says when the user stopped an answer', async () => {
+    streamChat.mockImplementation(async ({onText}: ChatRequest) => {
+      onText('Partial');
+      throw new AiError('aborted', 'stopped');
+    });
+    const user = userEvent.setup();
+    render(<ResearchChat ticker="AAPL" connection={CONNECTION} />);
+
+    await user.type(screen.getByRole('textbox'), 'Hi{Enter}');
+
+    expect(await screen.findByText('You stopped this answer.')).toBeVisible();
+    expect(screen.getByText('Partial')).toBeVisible();
   });
 
   it('says when the model declined', async () => {
@@ -90,6 +111,7 @@ describe('ResearchChat', () => {
 
     await user.type(screen.getByRole('textbox'), 'Hi{Enter}');
 
-    expect(await screen.findByText(/declined to answer/)).toBeVisible();
+    const notes = await screen.findAllByText(/declined to answer/);
+    expect(notes.length).toBeGreaterThan(0);
   });
 });

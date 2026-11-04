@@ -61,9 +61,14 @@ export function SiteHeader({current = 'home'}: SiteHeaderProps) {
             href={routeHref({page: 'settings'})}
           >
             <span className="ai-status__dot" aria-hidden="true" />
-            {connection
-              ? `${PROVIDERS[connection.provider].product} connected`
-              : 'Connect AI'}
+            {connection ? (
+              <span>
+                {PROVIDERS[connection.provider].product}
+                <span className="ai-status__long"> connected</span>
+              </span>
+            ) : (
+              'Connect AI'
+            )}
           </a>
           <TextSizeControl />
         </div>

@@ -23,11 +23,9 @@ export function Hero() {
           </div>
           <p className="hero__hint">
             Try the sample card: tap any dotted term, or widen the chart to 1Y.
-            To ask an AI about a real ticker,{' '}
-            <a href={routeHref({page: 'settings'})}>
-              connect your Claude or ChatGPT API key
-            </a>
-            .
+            Search a real ticker to ask Claude or ChatGPT about it; live prices
+            and news are coming soon.{' '}
+            <a href={routeHref({page: 'settings'})}>Connect your AI</a>
           </p>
         </div>
         <div className="hero__visual">

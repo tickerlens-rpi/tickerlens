@@ -65,7 +65,16 @@ export function App() {
 
   return (
     <div className="page">
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={event => {
+          // `#main` is not a route, so following it would leave the current
+          // page. Move focus to the content directly instead.
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
         Skip to content
       </a>
       <SiteHeader current={route.page} />

@@ -206,6 +206,8 @@
 .hero__inner {
   position: relative;
   display: grid;
+  /* minmax(0, 1fr) stops wide children pushing past the screen on phones. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 3rem;
   align-items: center;
 }

@@ -6,6 +6,7 @@
  * user's own key.
  */
 
+import {PROVIDERS} from './connection';
 import type {AiConnection, AiProvider} from './connection';
 
 export interface ChatMessage {
@@ -91,7 +92,9 @@ export async function listModels(
 }
 
 /** Plain-language advice for an error, shown under the chat or the form. */
-export function describeAiError(error: unknown): string {
+export function describeAiError(error: unknown, provider?: AiProvider): string {
+  const info = provider ? PROVIDERS[provider] : undefined;
+  const company = info?.label ?? 'The AI provider';
   if (!(error instanceof AiError)) {
     return error instanceof Error
       ? `Something went wrong: ${error.message}`
@@ -99,21 +102,23 @@ export function describeAiError(error: unknown): string {
   }
   switch (error.kind) {
     case 'auth':
-      return 'The provider rejected this API key. Check that it was copied in full and has not been revoked, then save it again in Settings.';
+      return `${company} did not accept this key. Check that you copied all of it and that it has not been deleted, then save it again.`;
     case 'permission':
-      return 'This API key is not allowed to do that. Check the key’s permissions or project in your provider dashboard.';
+      return `This key is not allowed to do that. Check the key's permissions${info ? ` at ${info.consoleHost}` : ''}, or create a new key.`;
     case 'quota':
-      return 'Your provider account has no credit left for API use. Add credit in the provider’s billing page.';
+      return info
+        ? `Your ${info.label} account is out of API credit. Add credit at ${info.consoleHost}, then ask again. API credit is separate from any ${info.chatAccount}.`
+        : 'Your account is out of API credit. Add credit on the provider’s billing page, then ask again.';
     case 'rate-limit':
-      return 'The provider is rate-limiting this key. Wait a moment and try again.';
+      return 'Too many questions too quickly. Wait about a minute and try again.';
     case 'model':
-      return 'The selected model is not available to this key. Pick another model in Settings.';
+      return 'The selected AI model is not available to this key. Choose another under “Advanced” in Settings.';
     case 'network':
-      return 'Could not reach the provider. Check your internet connection, and that an ad or privacy blocker is not blocking the provider’s API.';
+      return `Could not reach ${info?.label ?? 'the AI provider'}. Check your internet connection, and that an ad blocker or privacy extension is not blocking it.`;
     case 'aborted':
       return 'Stopped.';
     case 'other':
-      return `The provider returned an error: ${error.message}`;
+      return `The AI service had a problem. Try again in a moment. (Details: ${error.message})`;
     default: {
       const unreachable: never = error.kind;
       return unreachable;

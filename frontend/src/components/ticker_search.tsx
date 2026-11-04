@@ -1,5 +1,5 @@
 import {useId, useState} from 'react';
-import type {FormEvent} from 'react';
+import type {FormEvent, ReactNode} from 'react';
 import {parseTickerInput} from '../lib/ticker';
 import type {TickerError} from '../lib/ticker';
 
@@ -14,6 +14,12 @@ interface TickerSearchProps {
   acceptedMessage?: (ticker: string) => string;
   /** Empties the field after a valid submission, for add-another forms. */
   clearOnAccept?: boolean;
+  /** Smaller, quieter variant for secondary placements. */
+  compact?: boolean;
+  /** Placeholder inside the field. */
+  placeholder?: string;
+  /** Help text under the field, read out with it by screen readers. */
+  hint?: ReactNode;
 }
 
 type SearchState =
@@ -41,9 +47,13 @@ export function TickerSearch({
   buttonLabel = 'Research',
   acceptedMessage = defaultAcceptedMessage,
   clearOnAccept = false,
+  compact = false,
+  placeholder = 'AAPL',
+  hint,
 }: TickerSearchProps) {
   const inputId = useId();
   const messageId = useId();
+  const hintId = useId();
   const [value, setValue] = useState('');
   const [state, setState] = useState<SearchState>({kind: 'idle'});
 
@@ -60,7 +70,11 @@ export function TickerSearch({
   }
 
   return (
-    <form className="ticker-search" onSubmit={handleSubmit} noValidate>
+    <form
+      className={`ticker-search${compact ? ' ticker-search--compact' : ''}`}
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <label className="ticker-search__label" htmlFor={inputId}>
         {label}
       </label>
@@ -75,16 +89,21 @@ export function TickerSearch({
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
-          placeholder="AAPL"
+          placeholder={placeholder}
           value={value}
           onChange={event => setValue(event.target.value)}
-          aria-describedby={messageId}
+          aria-describedby={hint ? `${hintId} ${messageId}` : messageId}
           aria-invalid={state.kind === 'error'}
         />
         <button type="submit" className="button button--primary">
           {buttonLabel}
         </button>
       </div>
+      {hint && (
+        <p id={hintId} className="ticker-search__hint">
+          {hint}
+        </p>
+      )}
       <p
         id={messageId}
         className={`ticker-search__message ticker-search__message--${state.kind}`}

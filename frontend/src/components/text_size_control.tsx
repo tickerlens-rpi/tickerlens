@@ -43,6 +43,7 @@ export function TextSizeControl() {
           type="button"
           className={`text-size__option text-size__option--${option}`}
           aria-label={LABELS[option]}
+          title={LABELS[option]}
           aria-pressed={size === option}
           onClick={() => select(option)}
         >

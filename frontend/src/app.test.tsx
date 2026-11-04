@@ -59,8 +59,9 @@ describe('App', () => {
       await screen.findByRole('heading', {level: 1, name: '$NVDA'}),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', {name: 'Connect in Settings'}),
-    ).toHaveAttribute('href', '#/settings');
+      screen.getByRole('heading', {name: 'Connect an AI to ask about NVDA'}),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Anthropic API key')).toBeInTheDocument();
 
     act(() => navigateTo('#/missing'));
     expect(
@@ -96,6 +97,17 @@ describe('App', () => {
     act(() => navigateTo('#/watchlist'));
     const list = await screen.findByRole('list', {name: 'Watchlist'});
     expect(within(list).getByRole('link', {name: 'MSFT'})).toBeVisible();
+  });
+
+  it('skips to the content without leaving the current page', async () => {
+    const user = userEvent.setup();
+    window.location.hash = '#/settings';
+    render(<App />);
+
+    await user.click(screen.getByRole('link', {name: 'Skip to content'}));
+
+    expect(window.location.hash).toBe('#/settings');
+    expect(screen.getByRole('main')).toHaveFocus();
   });
 
   it('exposes header, navigation, main and footer landmarks', () => {

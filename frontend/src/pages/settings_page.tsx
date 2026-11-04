@@ -4,6 +4,7 @@ import {LocalDataPanel} from '../components/local_data_panel';
 import {PageHeading} from '../components/page_heading';
 import {TextSizeControl} from '../components/text_size_control';
 import {useAiConnection} from '../lib/ai/use_connection';
+import {routeHref} from '../lib/router';
 
 /** AI connection, display and privacy settings at `#/settings`. */
 export function SettingsPage() {
@@ -15,8 +16,8 @@ export function SettingsPage() {
     <div className="app-page container">
       <PageHeading eyebrow="Settings" title="Settings">
         <p>
-          Everything on this page is stored in this browser on your computer.
-          TickerLens servers never receive it.
+          Everything on this page is saved in this browser, on your computer.
+          TickerLens never receives it.
         </p>
       </PageHeading>
 
@@ -27,36 +28,49 @@ export function SettingsPage() {
               Connect your AI
             </h2>
             <p>
-              TickerLens explains stocks using your own Claude or ChatGPT
-              account through an API key. You pay the provider directly for what
-              you use, usually a few cents per conversation.
+              TickerLens explains stocks using Claude or ChatGPT through your
+              own developer account. You connect it once with an{' '}
+              <strong>API key</strong>, a password-like code that lets this site
+              ask the AI questions on your behalf.
             </p>
             <details className="faq">
               <summary>Can I use my ChatGPT Plus or Claude Pro plan?</summary>
               <p>
                 Not directly. OpenAI and Anthropic only let their monthly chat
-                subscriptions be used inside their own apps; they do not offer a
-                way for other websites to sign in with them. An API key from the
-                same account is the supported route, and it is billed per use
-                rather than from your subscription. If either company adds a
-                sign-in option for other sites, TickerLens can add it here.
+                plans be used inside their own apps, and they do not offer a way
+                for other websites to sign in with them. A developer account
+                with the same company is the supported route. It is billed per
+                question instead of monthly, and usually costs a few cents per
+                question. If either company adds a sign-in option for other
+                sites, TickerLens will add it here.
               </p>
             </details>
             <details className="faq">
               <summary>Is it safe to paste my key here?</summary>
               <p>
-                The key stays in this browser. Requests go from your computer
-                straight to Anthropic’s or OpenAI’s API; there is no TickerLens
-                server in between, and the published site blocks connections to
-                any other address. Anyone with access to this browser profile
-                could read it, so on a shared computer choose “This tab only”.
-                For extra safety, create a key just for TickerLens with a
-                spending limit, and revoke it from the provider’s dashboard
-                whenever you like.
+                Your key stays in this browser on your computer. Questions go
+                from your computer straight to Anthropic or OpenAI, with no
+                TickerLens server in between, and the site is built so it can
+                only talk to those two companies. Anyone who uses this browser
+                profile could find the key, so on a shared computer choose “This
+                tab only”. For extra peace of mind, make a key just for
+                TickerLens, set a spending limit, and delete the key from the
+                provider’s site whenever you like.
               </p>
             </details>
           </div>
-          <AiConnectionForm key={generation} connection={connection} />
+          <AiConnectionForm
+            key={generation}
+            connection={connection}
+            savedAction={
+              <a
+                className="button button--primary"
+                href={routeHref({page: 'research'})}
+              >
+                Research a stock →
+              </a>
+            }
+          />
         </section>
 
         <section className="settings__section" aria-labelledby="display-title">
@@ -65,9 +79,12 @@ export function SettingsPage() {
               Display
             </h2>
             <p>Make text larger across the whole site.</p>
-          </div>
-          <div className="settings__control">
-            <TextSizeControl />
+            <div className="settings__control">
+              <TextSizeControl />
+              <span className="settings__control-hint">
+                Default · Large · Larger
+              </span>
+            </div>
           </div>
         </section>
 
