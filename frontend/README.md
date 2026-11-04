@@ -1,8 +1,47 @@
 # TickerLens frontend
 
-The web client for TickerLens. Right now it is the public landing page; the
-research dashboard (ticker search, simplified overview, AI summaries, charts)
-will be built in the same app once the central API exists.
+The web client for TickerLens: the public landing page plus the app pages.
+Live market data (prices, charts, news) arrives once the central API exists;
+until then the research page answers questions with the user's own AI model.
+
+## Pages
+
+Routing is hash-based (`src/lib/router.ts`), so the build works from any
+static host without rewrite rules. Hashes that do not start with `#/` stay
+in-page anchors on the landing page.
+
+| Route                 | Page                                                            |
+| --------------------- | --------------------------------------------------------------- |
+| `#/`                  | Landing page                                                    |
+| `#/research/<TICKER>` | Research: ask the connected AI about a ticker, add to watchlist |
+| `#/watchlist`         | Saved tickers with personal notes                               |
+| `#/settings`          | Connect Claude or ChatGPT, text size, delete local data         |
+
+## Bring your own AI, stored on the user's computer
+
+Users connect their own **Anthropic (Claude)** or **OpenAI (ChatGPT)** API key
+in Settings. The design rule is that a TickerLens server never handles it:
+
+- The key, model choice, watchlist and preferences are stored only in the
+  browser (`localStorage`, or `sessionStorage` if the user picks "This tab
+  only"). Every key starts with `tickerlens.` and Settings can wipe them all.
+- Requests go straight from the browser to `api.anthropic.com` or
+  `api.openai.com` through the official SDKs (`@anthropic-ai/sdk`, `openai`)
+  with `dangerouslyAllowBrowser`, which is acceptable here because the key
+  belongs to the person using the browser, not to us.
+- Production builds carry a Content-Security-Policy (`vite.config.ts`) whose
+  `connect-src` allows only the site itself and those two APIs, so a bug or a
+  compromised dependency cannot quietly send the key elsewhere. Add the
+  central API's origin there when it exists.
+- The SDKs are loaded on demand (`src/lib/ai/chat.ts`), so the landing page
+  does not download them.
+- AI answers are rendered from a tiny Markdown subset into React elements
+  (`src/lib/simple_markdown.ts`), never as HTML.
+
+Consumer subscriptions (ChatGPT Plus, Claude Pro/Max) cannot be used: neither
+company offers a way for third-party websites to sign in with them, so API
+keys, billed per use, are the supported route. Settings explains this to
+users.
 
 Stack: [Vite](https://vite.dev) 8, [React](https://react.dev) 19, TypeScript,
 [Vitest](https://vitest.dev) + Testing Library, ESLint 10 with the Google
@@ -29,14 +68,19 @@ TypeScript Style rules, Prettier.
 ```
 src/
   main.tsx              Entry point: fonts, styles, text-size preference, render
-  app.tsx               Page shell (header, sections, footer)
-  components/           Reusable pieces: term explanations, ticker search,
+  app.tsx               Shell: header, routed page, footer; focus on navigation
+  pages/                One file per route (landing, research, watchlist,
+                        settings, not found)
+  components/           Reusable pieces: ticker search, research chat, AI
+                        connection form, watch button, term explanations,
                         text-size control, sample overview card, sparkline
-  sections/             One file per landing page section
+  sections/             Landing page sections, header and footer
   content/              Copy and data lifted from the vision document
-  lib/                  Framework-free helpers with unit tests
-  styles/               global.css (tokens, reset) and landing.css (layout)
-  test/setup.ts         Vitest setup (jest-dom matchers, cleanup)
+  lib/                  Helpers with unit tests: router, local storage,
+                        watchlist, Markdown subset, prompts
+  lib/ai/               AI connection storage and the Claude/OpenAI providers
+  styles/               global.css (tokens, reset), landing.css, app.css
+  test/setup.ts         Vitest setup (jest-dom, cleanup, storage reset)
 ```
 
 Tests live next to what they test as `*.test.ts(x)`. Files are `snake_case`

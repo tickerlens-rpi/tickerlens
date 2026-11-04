@@ -6,6 +6,14 @@ import type {TickerError} from '../lib/ticker';
 interface TickerSearchProps {
   /** Receives the normalised symbol whenever a valid one is submitted. */
   onSearch?: (ticker: string) => void;
+  /** Visible label above the field. */
+  label?: string;
+  /** Text on the submit button. */
+  buttonLabel?: string;
+  /** Message shown after a valid symbol is accepted. */
+  acceptedMessage?: (ticker: string) => string;
+  /** Empties the field after a valid submission, for add-another forms. */
+  clearOnAccept?: boolean;
 }
 
 type SearchState =
@@ -19,11 +27,21 @@ const ERROR_MESSAGES: Record<TickerError, string> = {
     'That does not look like a ticker symbol. Try something like MSFT or BRK.B.',
 };
 
+function defaultAcceptedMessage(ticker: string): string {
+  return `${ticker} looks like a valid symbol. Opening research…`;
+}
+
 /**
- * Search form for the hero. Until the central API exists it only validates
- * the shape of the symbol and says so, rather than pretending to search.
+ * Ticker search form. It validates the shape of the symbol only; whether the
+ * company exists is decided later by the AI or, once connected, the API.
  */
-export function TickerSearch({onSearch}: TickerSearchProps) {
+export function TickerSearch({
+  onSearch,
+  label = 'Search a company ticker',
+  buttonLabel = 'Research',
+  acceptedMessage = defaultAcceptedMessage,
+  clearOnAccept = false,
+}: TickerSearchProps) {
   const inputId = useId();
   const messageId = useId();
   const [value, setValue] = useState('');
@@ -36,7 +54,7 @@ export function TickerSearch({onSearch}: TickerSearchProps) {
       setState({kind: 'error', message: ERROR_MESSAGES[error]});
       return;
     }
-    setValue(ticker);
+    setValue(clearOnAccept ? '' : ticker);
     setState({kind: 'accepted', ticker});
     onSearch?.(ticker);
   }
@@ -44,7 +62,7 @@ export function TickerSearch({onSearch}: TickerSearchProps) {
   return (
     <form className="ticker-search" onSubmit={handleSubmit} noValidate>
       <label className="ticker-search__label" htmlFor={inputId}>
-        Search a company ticker
+        {label}
       </label>
       <div className="ticker-search__row">
         <span className="ticker-search__prefix" aria-hidden="true">
@@ -64,7 +82,7 @@ export function TickerSearch({onSearch}: TickerSearchProps) {
           aria-invalid={state.kind === 'error'}
         />
         <button type="submit" className="button button--primary">
-          Research
+          {buttonLabel}
         </button>
       </div>
       <p
@@ -73,20 +91,23 @@ export function TickerSearch({onSearch}: TickerSearchProps) {
         role="status"
         aria-live="polite"
       >
-        {messageFor(state)}
+        {messageFor(state, acceptedMessage)}
       </p>
     </form>
   );
 }
 
-function messageFor(state: SearchState): string {
+function messageFor(
+  state: SearchState,
+  acceptedMessage: (ticker: string) => string,
+): string {
   switch (state.kind) {
     case 'idle':
       return '';
     case 'error':
       return state.message;
     case 'accepted':
-      return `${state.ticker} looks like a valid symbol. Full research opens here once the TickerLens API is connected.`;
+      return acceptedMessage(state.ticker);
     default: {
       // Exhaustiveness check: adding a state without handling it fails to compile.
       const unreachable: never = state;

@@ -8,11 +8,13 @@
  * so the whole page grows with it.
  */
 
+import {STORAGE_PREFIX, notifyLocalDataChanged} from './local_data';
+
 export const TEXT_SIZES = ['default', 'large', 'larger'] as const;
 
 export type TextSize = (typeof TEXT_SIZES)[number];
 
-export const TEXT_SIZE_STORAGE_KEY = 'tickerlens.textSize';
+export const TEXT_SIZE_STORAGE_KEY = `${STORAGE_PREFIX}textSize`;
 
 const TEXT_SIZE_ATTRIBUTE = 'data-text-size';
 
@@ -59,4 +61,5 @@ export function storeTextSize(
   } catch {
     // Storage is a convenience; ignore quota or privacy-mode failures.
   }
+  notifyLocalDataChanged();
 }
