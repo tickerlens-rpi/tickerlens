@@ -9,11 +9,11 @@ about a stock.
 
 ## What was built
 
-| Page      | Route                 | What it does                                                                                                                                   |
-| --------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page      | Route                 | What it does                                                                                                                                                |
+| --------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Research  | `#/research/<TICKER>` | Ask the connected AI about a ticker: four starter questions or free chat, streamed answers, stop, retry. Connect an AI right on the page if none is set up. |
-| Watchlist | `#/watchlist`         | Saved tickers with personal notes. Notes save as you type.                                                                                     |
-| Settings  | `#/settings`          | Connect Claude or ChatGPT with step-by-step key help, choose where the key is kept, text size, and "delete all TickerLens data on this computer". |
+| Watchlist | `#/watchlist`         | Saved tickers with personal notes. Notes save as you type.                                                                                                  |
+| Settings  | `#/settings`          | Connect Claude or ChatGPT with step-by-step key help, choose where the key is kept, text size, and "delete all TickerLens data on this computer".           |
 
 Searching a ticker on the landing page now opens its research page. The header
 has page links and a "Claude connected" indicator. Routing is hash-based, so
