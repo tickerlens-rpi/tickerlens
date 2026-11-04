@@ -7,3 +7,7 @@ import {afterEach} from 'vitest';
 afterEach(() => {
   cleanup();
 });
+
+// jsdom does not implement scrolling; the router scrolls to the top of each
+// new page, so give it a no-op instead of a "not implemented" error.
+Object.defineProperty(window, 'scrollTo', {value: () => {}, writable: true});

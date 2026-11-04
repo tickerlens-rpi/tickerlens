@@ -28,6 +28,11 @@
   --margin-line: rgb(181 67 44 / 0.35);
   --up: #1f7a4d;
   --down: #b5432c;
+  /* Darker steps of up/down for small text on their tinted chips (AA). */
+  --up-ink: #18663f;
+  --down-ink: #9c3824;
+  /* The price line: the lens hue with enough chroma to read as colour. */
+  --series-price: #00806a;
 
   /* Type */
   --font-display:
@@ -214,6 +219,15 @@ a {
 .button--primary:hover {
   background: var(--lens-deep);
   border-color: var(--lens-deep);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .skip-link {
