@@ -1,11 +1,9 @@
 """Offline tests: no network, no API keys. Run from scrapper_api:  python -m pytest tests/test_api.py -v"""
 from datetime import date, datetime, timedelta, timezone
-
 import httpx
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
-
 from app import main as main_module
 from app.abstract_classes import MarketDataProvider, NewsProvider
 from app.combined import CombinedProvider

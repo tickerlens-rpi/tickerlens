@@ -7,12 +7,63 @@ services:
       - "80:80"
     restart: unless-stopped
 
+  database:
+    image: postgres:16-alpine
+    container_name: database-container
+    environment:
+      POSTGRES_USER: tickerlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tickerlens}
+      POSTGRES_DB: tickerlens
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickerlens -d tickerlens"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   scrapper:
     build: ./scrapper_api
-    image: scrapper-image
     container_name: scrapper-container
-    env_file:
-      - ./scrapper_api/.env
+    image: scrapper-image
+    environment:
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:?Set FINNHUB_API_KEY in .env}
     ports:
       - "8001:8001"
+    restart: unless-stopped
+
+  scheduler:
+    build: ./scheduler
+    container_name: scheduler-container
+    image: scheduler-image
+    environment:
+      SCRAPER_URL: http://scrapper:8001
+      DATABASE_URL: postgresql://tickerlens:${POSTGRES_PASSWORD:-tickerlens}@database:5432/tickerlens
+    ports:
+      - "8002:8002"
+    depends_on:
+      database:
+        condition: service_healthy
+      scrapper:
+        condition: service_started
+    restart: unless-stopped
+
+  central:
+    build: ./central_api
+    container_name: central-container
+    image: central-image
+    environment:
+      SCRAPER_URL: http://scrapper:8001
+      SCHEDULER_URL: http://scheduler:8002
+      DATABASE_URL: postgresql://tickerlens:${POSTGRES_PASSWORD:-tickerlens}@database:5432/tickerlens
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      scrapper:
+        condition: service_started
+      scheduler:
+        condition: service_started
     restart: unless-stopped

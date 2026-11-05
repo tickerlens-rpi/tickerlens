@@ -5,7 +5,7 @@ Start the server first (Docker or uvicorn), then from scrapper_api:
 Use another address with:  $env:API_URL="http://localhost:8000"
 
 The server needs FINNHUB_API_KEY. Prices come from Yahoo Finance and need no key.
-Cost: about 9 Finnhub calls and 1 Yahoo download.
+Cost: about 9 Finnhub calls (limit 60/minute) and 1 Yahoo download (cached for 5 minutes).
 """
 import json
 import os

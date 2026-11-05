@@ -4,9 +4,7 @@ Free tier: 60 calls/minute. The API key is sent in a header (not the URL), so it
 can never show up in an error message or a log line.
 """
 from datetime import datetime, timedelta, timezone
-
 import httpx
-
 from app.abstract_classes import NewsProvider, OverviewProvider
 from app.errors import ProviderError, TickerNotFound
 from app.models import Article

@@ -26,33 +26,27 @@ Tickers are normalized, so `$aapl` becomes `AAPL` and `brk.b` becomes `BRK-B`.
 | 502 | A provider failed or rate-limited (see the container logs) |
 | 503 | `FINNHUB_API_KEY` is not set |
 
+Interactive docs are at `/docs`.
 
 ## Setup
 
-Create `scrapper_api/.env`:
-
-```
-FINNHUB_API_KEY=your_key_here
-```
-
-Use no quotes and no spaces. A free key is at https://finnhub.io.
+In the full project, `FINNHUB_API_KEY` lives in the root `.env` next to `docker-compose.yml` and compose passes it to this container. A free key is at https://finnhub.io.
 
 ## Run with Docker Compose
 
-```yaml
-scrapper:
-  build: ./scrapper_api
-  env_file: ./scrapper_api/.env
-  ports:
-    - "8001:8001"
-```
+From the project root:
 
 ```
 docker compose up -d --build scrapper
 docker compose logs -f scrapper
 ```
 
-The `.env` file is not copied into the image. It is loaded when the container starts.
+Standalone, without compose:
+
+```
+docker build -t scrapper ./scrapper_api
+docker run --rm -p 8001:8001 -e FINNHUB_API_KEY=your_key_here scrapper
+```
 
 ## Run locally
 

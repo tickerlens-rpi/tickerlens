@@ -3,9 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Callable, Literal, TypeVar
-
 from fastapi import Depends, FastAPI, HTTPException, Query
-
 from app.abstract_classes import MarketDataProvider, NewsProvider
 from app.combined import CombinedProvider
 from app.errors import ProviderError, TickerNotFound

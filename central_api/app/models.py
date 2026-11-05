@@ -1,34 +1,48 @@
-"""Response models for the central API.
-
-These models generate the OpenAPI schema, which is the contract between the
-frontend and the backend. Changing a field here changes that contract.
-"""
-
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
-Exchange = Literal["NYSE", "NASDAQ"]
+"""Response models. FastAPI turns these into the OpenAPI contract."""
+from datetime import datetime
+from pydantic import BaseModel
 
 
-class HealthStatus(BaseModel):
-    """Liveness response for monitoring and smoke tests."""
+class Overview(BaseModel):
+    """Headline figures for one company."""
+    ticker: str
+    name: str
+    exchange: str | None = None
+    price: float
+    change_1d_pct: float | None = None
+    change_1w_pct: float | None = None
+    market_cap: int | None = None
+    pe_ratio: float | None = None
+    eps: float | None = None
+    revenue_growth_pct: float | None = None
+    last_updated: datetime
 
-    status: Literal["ok"] = "ok"
+
+class PricePoint(BaseModel):
+    """One closing price on one day."""
+    date: str
+    close: float
 
 
-class Company(BaseModel):
-    """A listed company, as shown in search suggestions and page headers."""
-
-    model_config = ConfigDict(frozen=True)
-
-    ticker: str = Field(examples=["AAPL"])
-    name: str = Field(examples=["Apple Inc."])
-    exchange: Exchange
+class PricesResponse(BaseModel):
+    """Closing prices over a range."""
+    ticker: str
+    range: str
+    points: list[PricePoint]
+    last_updated: datetime
 
 
-class CompanySearchResults(BaseModel):
-    """Companies matching a search, best match first."""
+class Article(BaseModel):
+    """One news article."""
+    headline: str
+    publisher: str | None = None
+    published_at: datetime | None = None
+    url: str
+    summary: str | None = None
 
-    query: str = Field(description="The search text as received.")
-    results: list[Company]
+
+class NewsResponse(BaseModel):
+    """Recent news for one company."""
+    ticker: str
+    articles: list[Article]
+    last_updated: datetime
