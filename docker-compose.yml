@@ -5,14 +5,14 @@ services:
     container_name: frontend-container
     ports:
       - "80:80"
-    depends_on:
-      - api
     restart: unless-stopped
 
-  api:
-    build: ./api
-    image: api-image
-    container_name: api-container
-    expose:
-      - "8000"
+  scrapper:
+    build: ./scrapper_api
+    image: scrapper-image
+    container_name: scrapper-container
+    env_file:
+      - ./scrapper_api/.env
+    ports:
+      - "8001:8001"
     restart: unless-stopped

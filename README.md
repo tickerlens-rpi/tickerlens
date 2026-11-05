@@ -9,17 +9,13 @@ plain-language research, and shows the source behind every claim.
 
 ## Components
 
-The vision document plans five components. Each one lives in its own folder
-with its own dependencies so it can later be built into its own container and
-wired together with a root `docker-compose.yml`.
+| Component       | Folder          | Purpose                                                                      | Status     |
+| --------------- | --------------- | ---------------------------------------------------------------------------- | ---------- |
+| Frontend        | `frontend/`     | Landing page today; the research dashboard (search, overview, AI panel) next | scaffolded |
+| Market data API | `scrapper_api/` | Serves prices, company overviews and news from Alpha Vantage                 | active     |
+| AI service      | `ai-service/`   | Summarises news, explains metrics, extracts sentiment                        | planned    |
 
-| Component       | Folder        | Purpose                                                                      | Status     |
-| --------------- | ------------- | ---------------------------------------------------------------------------- | ---------- |
-| Frontend        | `frontend/`   | Landing page today; the research dashboard (search, overview, AI panel) next | scaffolded |
-| Central API     | `api/`        | Single entry point that connects the frontend to every service               | scaffolded |
-| Scraper service | `scraper/`    | Pulls news, Reddit and financial-API data                                    | planned    |
-| AI service      | `ai-service/` | Summarises news, explains metrics, extracts sentiment                        | planned    |
-| Database        | `db/`         | Stores stock info, news, AI analysis and Reddit data                         | planned    |
+The API calls Alpha Vantage directly and does not persist responses.
 
 ## Getting started
 
@@ -45,10 +41,21 @@ Other useful commands, all run inside `frontend/`:
 | `npm run fix`           | Auto-fix lint and formatting problems                 |
 | `npm run build`         | Type-check and produce a production build in `dist/`  |
 
-### Central API
+### Market data API
 
-Requires Python 3.11 or newer. See [api/README.md](api/README.md) for setup,
-commands and the endpoints available today.
+Set `ALPHAVANTAGE_API_KEY` in your environment, then run the API from
+`scrapper_api/`:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8001
+```
+
+See [scrapper_api/README.md](scrapper_api/README.md) for endpoints and
+configuration. The API is also available on port 8001 when started with
+`docker compose up --build`.
 
 ## Conventions
 

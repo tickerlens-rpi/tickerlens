@@ -1,8 +1,8 @@
 """Where the API gets company data from.
 
 Routes depend on the abstract `CompanyRepository`, never on a concrete class,
-so the in-memory version used today can be replaced by a database-backed one
-without touching the routes, and tests can substitute their own.
+so lookup implementations can be replaced without changing the routes, and
+tests can substitute their own.
 """
 
 import abc

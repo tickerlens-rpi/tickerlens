@@ -1,4 +1,4 @@
-"""A small fixed set of companies used until the database is connected."""
+"""A small fixed set of companies for the legacy API scaffold."""
 
 from app.models import Company
 
