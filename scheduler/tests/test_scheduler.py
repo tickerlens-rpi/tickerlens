@@ -255,7 +255,12 @@ def test_the_loop_runs_again_and_again_even_after_a_crash(monkeypatch):
 
     async def run():
         task = asyncio.create_task(main.refresh_forever())
-        await asyncio.sleep(0.1)
+        # Wait for a second pass instead of a fixed time: a busy CI machine
+        # can take longer than one tick to start the thread and log the crash.
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5
+        while len(runs) < 2 and loop.time() < deadline:
+            await asyncio.sleep(0.01)
         assert not task.done()
         task.cancel()
 
