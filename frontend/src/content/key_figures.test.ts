@@ -3,7 +3,7 @@ import type {Company, Overview} from '../data/research';
 import {SAMPLE_COMPANIES} from '../data/sample/companies';
 import {SampleResearchClient} from '../data/sample_research_client';
 import {countWords} from '../lib/text';
-import {KEY_FIGURES, MAX_EXPLANATION_WORDS} from './key_figures';
+import {KEY_FIGURES, MAX_EXPLANATION_WORDS, NOT_AVAILABLE} from './key_figures';
 import type {KeyFigure, KeyFigureId} from './key_figures';
 
 const client = new SampleResearchClient();
@@ -64,5 +64,30 @@ describe('KEY_FIGURES', () => {
     expect(figure('eps').explain(overview, spacex)).toMatch(
       /lost \$0\.42 per share/,
     );
+  });
+  it('shows a dash and says so when the providers lack a figure', () => {
+    const company: Company = {
+      ticker: 'NEWCO',
+      name: 'Newco Holdings, Inc.',
+      exchange: 'NYSE',
+    };
+    const bare: Overview = {price: 12.5, asOf: '2026-11-05T21:00:00Z'};
+    for (const entry of KEY_FIGURES.filter(({id}) => id !== 'price')) {
+      expect(entry.value(bare)).toBe(NOT_AVAILABLE);
+      const text = entry.explain(bare, company);
+      expect(text).toContain('do not have this figure for Newco');
+      expect(countWords(text)).toBeLessThanOrEqual(MAX_EXPLANATION_WORDS);
+    }
+  });
+
+  it('still says a P/E is meaningless when only the loss is known', () => {
+    const company: Company = {
+      ticker: 'LOSS',
+      name: 'Loss Co',
+      exchange: 'NYSE',
+    };
+    const overview: Overview = {price: 3, eps: -0.4, asOf: '2026-11-05'};
+    expect(figure('peRatio').value(overview)).toBe('n/a');
+    expect(figure('peRatio').explain(overview, company)).toMatch(/lost money/);
   });
 });

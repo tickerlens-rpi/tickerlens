@@ -2,9 +2,9 @@
  * @fileoverview The research data the company page shows, and the client
  * interface it loads that data through.
  *
- * `Company` mirrors the central API's response model in `api/app/models.py`.
- * The other shapes are the frontend's proposal for the endpoints the API adds
- * next (see `frontend/README.md`); keep both sides in step when either changes.
+ * The API client fills these from the central API (see
+ * `docs/CENTRAL_API_CONTRACT.md`); keep both sides in step when either
+ * changes. A figure the data providers do not have is left out, never zero.
  */
 
 /** Exchanges TickerLens covers in this release. */
@@ -17,22 +17,25 @@ export interface Company {
   exchange: Exchange;
 }
 
-/** The seven key figures on the company overview (requirement F2). */
+/**
+ * The seven key figures on the company overview (requirement F2). Only the
+ * price is always there; any other figure can be missing for a company.
+ */
 export interface Overview {
   /** Latest price in US dollars. */
   price: number;
   /** Change since the previous close, as a fraction (0.012 is +1.2%). */
-  dayChange: number;
+  dayChange?: number;
   /** Change over the last five trading days, as a fraction. */
-  weekChange: number;
+  weekChange?: number;
   /** Market capitalisation in US dollars. */
-  marketCap: number;
+  marketCap?: number;
   /** Earnings per share over the past twelve months, in US dollars. */
-  eps: number;
+  eps?: number;
   /** Price-to-earnings ratio; absent when the company lost money. */
   peRatio?: number;
   /** Year-over-year revenue growth, as a fraction. */
-  revenueGrowth: number;
+  revenueGrowth?: number;
   /** When these figures were last updated, as an ISO 8601 timestamp. */
   asOf: string;
 }
@@ -55,9 +58,11 @@ export interface NewsArticle {
   id: string;
   headline: string;
   publisher: string;
-  /** Publication date, as YYYY-MM-DD or an ISO 8601 timestamp. */
-  publishedAt: string;
+  /** Publication date, as YYYY-MM-DD or an ISO 8601 timestamp, if known. */
+  publishedAt?: string;
   url: string;
+  /** The provider's short summary of the article, if it has one. */
+  summary?: string;
 }
 
 /** One plain-language summary bullet and the article it came from (F6, F7). */
@@ -97,6 +102,10 @@ export interface ResearchClient {
   /** Recent articles about the company, newest first. */
   getNews(ticker: string): Promise<NewsArticle[]>;
 
-  /** AI summary of the recent news, or undefined when there is too little. */
+  /**
+   * A news summary the data service already has, or undefined when it has
+   * none. The sample client has written ones; the API has no AI service
+   * yet, so the company page asks the reader's own AI instead.
+   */
   getNewsSummary(ticker: string): Promise<NewsSummary | undefined>;
 }

@@ -27,14 +27,21 @@ export function QuoteHeader({company, overview}: QuoteHeaderProps) {
       {overview && (
         <div className="quote__price">
           <p className="quote__value">{formatPrice(overview.price)}</p>
-          <ul className="quote__changes" aria-label="Price changes">
-            <li>
-              <Change value={overview.dayChange} period="today" />
-            </li>
-            <li>
-              <Change value={overview.weekChange} period="this week" />
-            </li>
-          </ul>
+          {(overview.dayChange !== undefined ||
+            overview.weekChange !== undefined) && (
+            <ul className="quote__changes" aria-label="Price changes">
+              {overview.dayChange !== undefined && (
+                <li>
+                  <Change value={overview.dayChange} period="today" />
+                </li>
+              )}
+              {overview.weekChange !== undefined && (
+                <li>
+                  <Change value={overview.weekChange} period="this week" />
+                </li>
+              )}
+            </ul>
+          )}
           <p className="quote__updated">
             Last updated{' '}
             <time dateTime={overview.asOf}>
