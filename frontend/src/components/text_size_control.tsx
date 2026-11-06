@@ -1,4 +1,5 @@
-import {useState} from 'react';
+import {useSyncExternalStore} from 'react';
+import {subscribeToLocalData} from '../lib/local_data';
 import {
   TEXT_SIZES,
   applyTextSize,
@@ -13,15 +14,23 @@ const LABELS: Record<TextSize, string> = {
   larger: 'Larger text size',
 };
 
+function readSize(): TextSize {
+  return readStoredTextSize();
+}
+
 /**
- * Three-way text-size switch shown in the header. The stored preference is
- * applied before first paint in `main.tsx`; this control only changes it.
+ * Three-way text-size switch. The stored preference is applied before first
+ * paint in `main.tsx`; this control changes it, and every copy of the control
+ * (header and Settings) stays in sync through storage.
  */
 export function TextSizeControl() {
-  const [size, setSize] = useState<TextSize>(readStoredTextSize);
+  const size = useSyncExternalStore(
+    subscribeToLocalData,
+    readSize,
+    (): TextSize => 'default',
+  );
 
   function select(option: TextSize) {
-    setSize(option);
     applyTextSize(option);
     storeTextSize(option);
   }
@@ -34,6 +43,7 @@ export function TextSizeControl() {
           type="button"
           className={`text-size__option text-size__option--${option}`}
           aria-label={LABELS[option]}
+          title={LABELS[option]}
           aria-pressed={size === option}
           onClick={() => select(option)}
         >

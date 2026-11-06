@@ -1,9 +1,45 @@
 # TickerLens frontend
 
-The web client for TickerLens: the public landing page and the company
+The web client for TickerLens: the public landing page, the company
 research page, where a reader searches for a company and gets its key
 figures with explanations, a simplified price chart, an AI news summary with
-the source behind every bullet, and the latest news.
+the source behind every bullet, and the latest news, plus a chat, a
+watchlist and settings.
+
+## Pages
+
+Routing uses React Router with real paths. Static hosts must serve
+`index.html` for unknown paths (Cloudflare Pages does this when the build has
+no `404.html`; the Docker image's nginx is configured for it).
+
+| Route               | Page                                                             |
+| ------------------- | ---------------------------------------------------------------- |
+| `/`                 | Landing page with the company search                             |
+| `/company/:ticker`  | Company research: figures, chart, AI news summary, news          |
+| `/research`         | Search for a company to research                                 |
+| `/research/:ticker` | Ask the connected AI about a ticker, add it to the watchlist     |
+| `/watchlist`        | Saved tickers with personal notes                                |
+| `/settings`         | Connect Claude or ChatGPT, text size, delete local data          |
+
+## Bring your own AI, stored on the user's computer
+
+Users connect their own **Anthropic (Claude)** or **OpenAI (ChatGPT)** API key
+in Settings:
+
+- The key, model choice, watchlist and preferences are stored only in the
+  browser (`localStorage`, or `sessionStorage` if the user picks "This tab
+  only"). Every key starts with `tickerlens.` and Settings can wipe them all.
+- Requests go straight from the browser to `api.anthropic.com` or
+  `api.openai.com` through the official SDKs (`@anthropic-ai/sdk`, `openai`)
+  with `dangerouslyAllowBrowser`, which is acceptable here because the key
+  belongs to the person using the browser, not to us.
+- Production builds carry a Content-Security-Policy (`vite.config.ts`) whose
+  `connect-src` allows only the site itself and those two APIs, so a bug or a
+  compromised dependency cannot quietly send the key elsewhere.
+- The SDKs are loaded on demand (`src/lib/ai/chat.ts`), so the landing page
+  does not download them.
+- AI answers are rendered from a tiny Markdown subset into React elements
+  (`src/lib/simple_markdown.ts`), never as HTML.
 
 Stack: [Vite](https://vite.dev) 8, [React](https://react.dev) 19, TypeScript,
 [Vitest](https://vitest.dev) + Testing Library, ESLint 10 with the Google
@@ -88,17 +124,21 @@ the matching `ApiResearchClient` method from the fallback to the API.
 ```
 src/
   main.tsx              Entry point: fonts, styles, text-size preference, render
-  app.tsx               Research client, router and routes
-  pages/                Landing, company and not-found pages
-  sections/             Landing page sections, headers, the research layout
+  app.tsx               Research client, router, routes and the page frame
+  pages/                One file per route (landing, company, research,
+                        watchlist, settings, not found)
+  sections/             Landing page sections, header, footer, research layout
   components/           Search, quote header, key figures, price chart,
-                        news summary and source tags, news list, term
+                        news summary and source tags, news list, research
+                        chat, AI connection form, watch button, term
                         explanations, text-size control, sample card
   data/                 ResearchClient interface, sample and API clients,
                         and the sample data itself (data/sample/)
   content/              Copy: landing content, key-figure explanations
-  lib/                  Formatting, dates, chart scales, hooks, helpers
-  styles/               global.css (tokens), landing.css, research.css
+  lib/                  Formatting, dates, chart scales, hooks, local
+                        storage, watchlist, Markdown subset, prompts
+  lib/ai/               AI connection storage and the Claude/OpenAI providers
+  styles/               global.css (tokens), landing.css, research.css, app.css
   test/                 Vitest setup and the renderWithProviders helper
 ```
 

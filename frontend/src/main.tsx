@@ -6,6 +6,7 @@ import '@fontsource/ibm-plex-mono/500.css';
 import './styles/global.css';
 import './styles/landing.css';
 import './styles/research.css';
+import './styles/app.css';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {App} from './app';

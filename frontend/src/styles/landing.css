@@ -112,6 +112,10 @@
   border-color: var(--lens);
 }
 
+.site-nav a[aria-current='page'] {
+  border-color: var(--ink);
+}
+
 .site-header__actions {
   display: flex;
   align-items: center;
@@ -120,9 +124,17 @@
 }
 
 @media (max-width: 767px) {
-  .site-nav,
-  .site-header__cta {
-    display: none;
+  .site-header__inner {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding-block: 0.6rem;
+  }
+
+  /* The app pages need the navigation on phones too: give it its own row. */
+  .site-nav {
+    order: 3;
+    width: 100%;
+    margin-inline: 0;
   }
 }
 
@@ -194,6 +206,8 @@
 .hero__inner {
   position: relative;
   display: grid;
+  /* minmax(0, 1fr) stops wide children pushing past the screen on phones. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 3rem;
   align-items: center;
 }

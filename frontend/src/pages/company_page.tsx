@@ -51,7 +51,14 @@ export function CompanyPage() {
     body = <CompanyResearch company={company.value} />;
   }
 
-  return <ResearchLayout>{body}</ResearchLayout>;
+  return (
+    <ResearchLayout>
+      <div className="research__searchbar">
+        <CompanySearch variant="compact" />
+      </div>
+      {body}
+    </ResearchLayout>
+  );
 }
 
 function CompanyResearch({company}: {company: Company}) {
