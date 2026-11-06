@@ -36,4 +36,14 @@ describe('QuoteHeader', () => {
       'Last updated 4:00 PM ET, Oct 20',
     );
   });
+  it('leaves out a change the providers do not have', () => {
+    render(
+      <QuoteHeader
+        company={NIKE}
+        overview={{price: 71.8, weekChange: -0.0924, asOf: OVERVIEW.asOf}}
+      />,
+    );
+    expect(screen.queryByText(/today/)).not.toBeInTheDocument();
+    expect(screen.getByText(/this week/)).toBeInTheDocument();
+  });
 });

@@ -1,7 +1,10 @@
-import {SampleOverview} from '../components/sample_overview';
+import {Link} from 'react-router';
 import {CompanySearch} from '../components/company_search';
+import {SampleOverview} from '../components/sample_overview';
+import {useResearchClient} from '../data/research_context';
 
 export function Hero() {
+  const client = useResearchClient();
   return (
     <section className="hero" id="top" aria-labelledby="hero-title">
       <div className="hero__inner container">
@@ -15,12 +18,15 @@ export function Hero() {
             into plain-language research you can actually read, with the source
             behind every claim.
           </p>
-          <div id="search">
+          <div id="search" className="hero__search">
             <CompanySearch />
           </div>
           <p className="hero__hint">
-            Try Apple or NKE. Until real market data is connected, every company
-            page uses sample data.
+            Try Apple or NKE.
+            {client.usesSampleData &&
+              ' Until real market data is connected, every company page uses sample data.'}{' '}
+            For AI news summaries and answers,{' '}
+            <Link to="/settings">connect your AI</Link>.
           </p>
         </div>
         <div className="hero__visual">

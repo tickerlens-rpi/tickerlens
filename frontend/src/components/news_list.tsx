@@ -55,10 +55,15 @@ export function NewsList({company}: NewsListProps) {
               <span className="visually-hidden"> (opens in a new tab)</span>
             </a>
             <p className="news__meta">
-              {article.publisher} ·{' '}
-              <time dateTime={article.publishedAt}>
-                {formatLongDate(article.publishedAt)}
-              </time>
+              {article.publisher}
+              {article.publishedAt && (
+                <>
+                  {' · '}
+                  <time dateTime={article.publishedAt}>
+                    {formatLongDate(article.publishedAt)}
+                  </time>
+                </>
+              )}
             </p>
           </li>
         ))}

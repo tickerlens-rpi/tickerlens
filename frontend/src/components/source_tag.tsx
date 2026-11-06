@@ -34,16 +34,21 @@ export function SourceTag({article}: SourceTagProps) {
         onKeyDown={handleKeyDown}
       >
         {/* Space outside the span so "Source:" never runs into the name. */}
-        <span className="visually-hidden">Source:</span> {article.publisher} ·{' '}
-        {formatShortDate(article.publishedAt)}
+        <span className="visually-hidden">Source:</span> {article.publisher}
+        {article.publishedAt && ` · ${formatShortDate(article.publishedAt)}`}
       </button>
       <div id={slipId} className="source__slip" hidden={!open}>
         <p className="source__headline">{article.headline}</p>
         <p className="source__meta">
-          {article.publisher} ·{' '}
-          <time dateTime={article.publishedAt}>
-            {formatLongDate(article.publishedAt)}
-          </time>
+          {article.publisher}
+          {article.publishedAt && (
+            <>
+              {' · '}
+              <time dateTime={article.publishedAt}>
+                {formatLongDate(article.publishedAt)}
+              </time>
+            </>
+          )}
         </p>
         <a
           className="source__link"

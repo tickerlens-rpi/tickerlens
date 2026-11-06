@@ -101,4 +101,14 @@ describe('CompanyPage', () => {
       }),
     ).toBeInTheDocument();
   });
+
+  it('links to the watchlist and to asking AI about the company', async () => {
+    renderCompany('/company/NKE');
+    expect(
+      await screen.findByRole('button', {name: 'Add to watchlist'}),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('link', {name: 'Ask AI about NKE'}),
+    ).toHaveAttribute('href', '/research/NKE');
+  });
 });

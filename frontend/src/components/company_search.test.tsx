@@ -164,6 +164,37 @@ describe('CompanySearch', () => {
     );
   });
 
+  it('ignores a slow submitted search once the query has changed', async () => {
+    const user = userEvent.setup();
+    const client = new SampleResearchClient();
+    const search = client.searchCompanies.bind(client);
+    let finishAppleSearch: () => void = () => {};
+    const appleSearch = new Promise<void>(resolve => {
+      finishAppleSearch = resolve;
+    });
+    // Only the search started by pressing Enter on "apple" is slow.
+    let slowOnce = true;
+    vi.spyOn(client, 'searchCompanies').mockImplementation(async query => {
+      if (query === 'apple' && slowOnce) {
+        slowOnce = false;
+        await appleSearch;
+      }
+      return search(query);
+    });
+    renderWithProviders(<CompanySearch />, {client});
+    const input = screen.getByRole('combobox');
+
+    // Enter arrives before the suggestions, so submit searches by itself.
+    await user.type(input, 'apple{Enter}');
+    await user.type(input, 'x');
+    finishAppleSearch();
+
+    await waitFor(() => expect(client.searchCompanies).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(currentPath()).toHaveTextContent(/^\/$/);
+    expect(input).toHaveValue('applex');
+  });
+
   it('closes the suggestions on Escape', async () => {
     const user = userEvent.setup();
     renderWithProviders(<CompanySearch />);

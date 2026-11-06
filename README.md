@@ -9,19 +9,36 @@ plain-language research, and shows the source behind every claim.
 
 ## Components
 
-The vision document plans five components. Each one lives in its own folder
-with its own dependencies so it can later be built into its own container and
-wired together with a root `docker-compose.yml`.
+| Component   | Folder          | Purpose                                                                      |
+| ----------- | --------------- | ---------------------------------------------------------------------------- |
+| Frontend    | `frontend/`     | Landing page, company research page, AI chat, watchlist, settings (React)    |
+| Central API | `central_api/`  | The only service the frontend calls: company search, overview, prices, news  |
+| Scraper     | `scrapper_api/` | Fetches fresh data: overview and news from Finnhub, prices from Yahoo        |
+| Scheduler   | `scheduler/`    | Keeps recently searched tickers fresh in the database                        |
+| Database    | `database/`     | Postgres cache shared by the central API and the scheduler                   |
 
-| Component       | Folder        | Purpose                                                                      | Status     |
-| --------------- | ------------- | ---------------------------------------------------------------------------- | ---------- |
-| Frontend        | `frontend/`   | Landing page today; the research dashboard (search, overview, AI panel) next | scaffolded |
-| Central API     | `api/`        | Single entry point that connects the frontend to every service               | scaffolded |
-| Scraper service | `scraper/`    | Pulls news, Reddit and financial-API data                                    | planned    |
-| AI service      | `ai-service/` | Summarises news, explains metrics, extracts sentiment                        | planned    |
-| Database        | `db/`         | Stores stock info, news, AI analysis and Reddit data                         | planned    |
+AI features (the news summary and the chat) run in the browser with each
+user's own AI account, so the servers hold no AI keys. See
+[frontend/README.md](frontend/README.md).
 
-## Getting started
+How the services fit together: [docs/backend_readme.md](docs/backend_readme.md).
+The API contract the frontend relies on:
+[docs/CENTRAL_API_CONTRACT.md](docs/CENTRAL_API_CONTRACT.md).
+
+## Run everything with Docker (one command)
+
+Requires Docker with Compose. Copy `.env.example` to `.env`, put your free
+[Finnhub](https://finnhub.io/register) API key in it, then:
+
+```bash
+docker compose up -d --build
+```
+
+Open http://localhost (set `FRONTEND_PORT` in `.env` to use another port).
+The frontend's nginx forwards `/api/` to the central API, so the browser only
+ever talks to one origin.
+
+## Run the frontend on its own
 
 Requires Node.js 22.22 or newer (React Router 8 needs it).
 
@@ -31,7 +48,10 @@ npm install
 npm run dev
 ```
 
-Then open the URL Vite prints (normally http://localhost:5173).
+Then open the URL Vite prints (normally http://localhost:5173). Without a
+backend the pages use labelled sample data. To use a central API running on
+port 8000, start the dev server with `VITE_API_BASE_URL=/api npm run dev`;
+Vite forwards `/api` to it.
 
 Other useful commands, all run inside `frontend/`:
 
@@ -45,10 +65,7 @@ Other useful commands, all run inside `frontend/`:
 | `npm run fix`           | Auto-fix lint and formatting problems                 |
 | `npm run build`         | Type-check and produce a production build in `dist/`  |
 
-### Central API
-
-Requires Python 3.11 or newer. See [api/README.md](api/README.md) for setup,
-commands and the endpoints available today.
+Each Python service has its own `README.md` with how to run it and its tests.
 
 ## Conventions
 

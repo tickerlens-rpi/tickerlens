@@ -47,9 +47,8 @@ describe('SampleResearchClient', () => {
       expect(Number.isFinite(overview.revenueGrowth)).toBe(true);
       expect(overview.asOf).toBe('2026-10-20T20:00:00Z');
       // P/E is the price over earnings, and only exists when there are any.
-      expect(overview.peRatio).toBe(
-        overview.eps > 0 ? overview.price / overview.eps : undefined,
-      );
+      const eps = overview.eps ?? 0;
+      expect(overview.peRatio).toBe(eps > 0 ? overview.price / eps : undefined);
     },
   );
 

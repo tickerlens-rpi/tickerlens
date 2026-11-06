@@ -1,0 +1,75 @@
+# One command runs everything: docker compose up -d --build
+# Settings come from .env (copy .env.example). Only the frontend is published
+# to the network; it forwards /api to central. The other services' ports are
+# open on this machine only, for debugging and the deployment tests.
+services:
+  frontend:
+    build: ./frontend
+    image: frontend-image
+    container_name: frontend-container
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - central
+    restart: unless-stopped
+
+  database:
+    image: postgres:16-alpine
+    container_name: database-container
+    environment:
+      POSTGRES_USER: tickerlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tickerlens}
+      POSTGRES_DB: tickerlens
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickerlens -d tickerlens"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  scrapper:
+    build: ./scrapper_api
+    container_name: scrapper-container
+    image: scrapper-image
+    environment:
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:?Set FINNHUB_API_KEY in .env}
+    ports:
+      - "127.0.0.1:8001:8001"
+    restart: unless-stopped
+
+  scheduler:
+    build: ./scheduler
+    container_name: scheduler-container
+    image: scheduler-image
+    environment:
+      SCRAPER_URL: http://scrapper:8001
+      DATABASE_URL: postgresql://tickerlens:${POSTGRES_PASSWORD:-tickerlens}@database:5432/tickerlens
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      database:
+        condition: service_healthy
+      scrapper:
+        condition: service_started
+    restart: unless-stopped
+
+  central:
+    build: ./central_api
+    container_name: central-container
+    image: central-image
+    environment:
+      SCRAPER_URL: http://scrapper:8001
+      SCHEDULER_URL: http://scheduler:8002
+      DATABASE_URL: postgresql://tickerlens:${POSTGRES_PASSWORD:-tickerlens}@database:5432/tickerlens
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      scrapper:
+        condition: service_started
+      scheduler:
+        condition: service_started
+    restart: unless-stopped

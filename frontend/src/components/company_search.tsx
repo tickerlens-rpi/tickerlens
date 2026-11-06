@@ -1,4 +1,4 @@
-import {useCallback, useId, useState} from 'react';
+import {useCallback, useId, useRef, useState} from 'react';
 import type {FormEvent, KeyboardEvent} from 'react';
 import {useNavigate} from 'react-router';
 import type {Company} from '../data/research';
@@ -12,6 +12,12 @@ const SUGGESTION_DELAY_MS = 150;
 interface CompanySearchProps {
   /** `hero` is the large box on the landing page; `compact` fits a header. */
   variant?: 'hero' | 'compact';
+  /** Runs when a company is chosen. Opens the company's page by default. */
+  onChoose?: (company: Company) => void;
+  /** The field's label; visible in the hero variant, read out in both. */
+  label?: string;
+  /** Text on the submit button in the hero variant. */
+  buttonLabel?: string;
 }
 
 type Problem =
@@ -22,7 +28,12 @@ type Problem =
  * (requirement F1). Choosing a company opens its page; a search that matches
  * nothing says so instead of failing.
  */
-export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
+export function CompanySearch({
+  variant = 'hero',
+  onChoose,
+  label = 'Search a company or ticker',
+  buttonLabel = 'Search',
+}: CompanySearchProps) {
   const client = useResearchClient();
   const navigate = useNavigate();
   const inputId = useId();
@@ -38,6 +49,9 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
     query: string;
     problem: Problem;
   }>();
+  // Counts submissions; typing bumps it too, so a slow search started by an
+  // earlier submit can tell it is out of date and must not choose anything.
+  const submission = useRef(0);
 
   const trimmed = query.trim();
   const debounced = useDebouncedValue(trimmed, SUGGESTION_DELAY_MS);
@@ -76,10 +90,15 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
   }
 
   function choose(company: Company) {
+    submission.current += 1;
     setQuery('');
     setOpen(false);
     setSubmitted(undefined);
-    void navigate(`/company/${encodeURIComponent(company.ticker)}`);
+    if (onChoose) {
+      onChoose(company);
+    } else {
+      void navigate(`/company/${encodeURIComponent(company.ticker)}`);
+    }
   }
 
   async function submit() {
@@ -92,11 +111,15 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
       setSubmitted({query: trimmed, problem: {kind: 'empty'}});
       return;
     }
+    const id = ++submission.current;
     try {
       // Enter can arrive before the debounced suggestions do.
       const matches = upToDate
         ? companies
         : await client.searchCompanies(trimmed);
+      if (id !== submission.current) {
+        return; // The query changed while this search was running.
+      }
       const best = matches[0];
       if (best) {
         choose(best);
@@ -107,7 +130,9 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
         });
       }
     } catch {
-      setSubmitted({query: trimmed, problem: {kind: 'unavailable'}});
+      if (id === submission.current) {
+        setSubmitted({query: trimmed, problem: {kind: 'unavailable'}});
+      }
     }
   }
 
@@ -135,6 +160,7 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
           event.preventDefault();
           setOpen(false);
         } else {
+          submission.current += 1;
           setQuery('');
         }
         break;
@@ -158,7 +184,7 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
         }
         htmlFor={inputId}
       >
-        Search a company or ticker
+        {label}
       </label>
       <div className="company-search__field">
         <div className="company-search__row">
@@ -183,6 +209,7 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
             }
             value={query}
             onChange={event => {
+              submission.current += 1;
               setQuery(event.target.value);
               setOpen(true);
             }}
@@ -192,7 +219,7 @@ export function CompanySearch({variant = 'hero'}: CompanySearchProps) {
           />
           {variant === 'hero' && (
             <button type="submit" className="button button--primary">
-              Search
+              {buttonLabel}
             </button>
           )}
         </div>

@@ -37,6 +37,13 @@ export interface KeyFigure {
   explain(overview: Overview, company: Company): string;
 }
 
+/** What a tile shows when the data providers do not have the figure. */
+export const NOT_AVAILABLE = '—';
+
+function missing(company: Company): string {
+  return `The data providers do not have this figure for ${shortName(company)} right now.`;
+}
+
 export const KEY_FIGURES: readonly KeyFigure[] = [
   {
     id: 'price',
@@ -48,46 +55,70 @@ export const KEY_FIGURES: readonly KeyFigure[] = [
   {
     id: 'dayChange',
     label: '1-day change',
-    value: overview => formatChange(overview.dayChange),
-    explain: (overview, company) =>
-      `How much the price moved since the previous trading day ended. ${shortName(company)} moved ${formatChange(overview.dayChange)}. Prices bounce around every day, so a small daily move on its own rarely means much.`,
+    value: ({dayChange}) =>
+      dayChange === undefined ? NOT_AVAILABLE : formatChange(dayChange),
+    explain: ({dayChange}, company) =>
+      dayChange === undefined
+        ? `How much the price moved since the previous trading day ended. ${missing(company)}`
+        : `How much the price moved since the previous trading day ended. ${shortName(company)} moved ${formatChange(dayChange)}. Prices bounce around every day, so a small daily move on its own rarely means much.`,
   },
   {
     id: 'weekChange',
     label: '1-week change',
-    value: overview => formatChange(overview.weekChange),
-    explain: (overview, company) =>
-      `How much the price moved over the last five trading days. ${shortName(company)} moved ${formatChange(overview.weekChange)}. A week smooths out some of the daily noise, so a large weekly move deserves a closer look.`,
+    value: ({weekChange}) =>
+      weekChange === undefined ? NOT_AVAILABLE : formatChange(weekChange),
+    explain: ({weekChange}, company) =>
+      weekChange === undefined
+        ? `How much the price moved over the last five trading days. ${missing(company)}`
+        : `How much the price moved over the last five trading days. ${shortName(company)} moved ${formatChange(weekChange)}. A week smooths out some of the daily noise, so a large weekly move deserves a closer look.`,
   },
   {
     id: 'marketCap',
     label: 'Market cap',
-    value: overview => formatCompactUsd(overview.marketCap),
-    explain: (overview, company) =>
-      `Market capitalisation: the share price times the number of shares, or what the market values the whole company at. For ${shortName(company)} that is ${formatCompactUsd(overview.marketCap)}. Larger companies tend to move less on any single piece of news.`,
+    value: ({marketCap}) =>
+      marketCap === undefined ? NOT_AVAILABLE : formatCompactUsd(marketCap),
+    explain: ({marketCap}, company) =>
+      marketCap === undefined
+        ? `Market capitalisation: the share price times the number of shares, or what the market values the whole company at. ${missing(company)}`
+        : `Market capitalisation: the share price times the number of shares, or what the market values the whole company at. For ${shortName(company)} that is ${formatCompactUsd(marketCap)}. Larger companies tend to move less on any single piece of news.`,
   },
   {
     id: 'peRatio',
     label: 'P/E ratio',
-    value: overview =>
-      overview.peRatio === undefined ? 'n/a' : formatRatio(overview.peRatio),
-    explain: (overview, company) =>
-      overview.peRatio === undefined
-        ? `Price-to-earnings ratio: the share price divided by yearly earnings per share. ${shortName(company)} lost money over the past year, so the ratio would be meaningless and is not shown.`
-        : `Price-to-earnings ratio: the share price divided by yearly earnings per share. Investors are paying about ${formatPrice(overview.peRatio)} for every $1 of profit ${shortName(company)} earned over the past year. A higher P/E usually means investors expect strong growth.`,
+    value: ({peRatio, eps}) => {
+      if (peRatio !== undefined) {
+        return formatRatio(peRatio);
+      }
+      return eps !== undefined && eps <= 0 ? 'n/a' : NOT_AVAILABLE;
+    },
+    explain: ({peRatio, eps}, company) => {
+      const definition =
+        'Price-to-earnings ratio: the share price divided by yearly earnings per share.';
+      if (peRatio !== undefined) {
+        return `${definition} Investors are paying about ${formatPrice(peRatio)} for every $1 of profit ${shortName(company)} earned over the past year. A higher P/E usually means investors expect strong growth.`;
+      }
+      return eps !== undefined && eps <= 0
+        ? `${definition} ${shortName(company)} lost money over the past year, so the ratio would be meaningless and is not shown.`
+        : `${definition} ${missing(company)}`;
+    },
   },
   {
     id: 'eps',
     label: 'EPS',
-    value: overview => formatPrice(overview.eps),
-    explain: (overview, company) =>
-      `Earnings per share: the company’s profit over the past year divided by its number of shares. ${shortName(company)} ${overview.eps < 0 ? 'lost' : 'earned'} ${formatPrice(Math.abs(overview.eps))} per share. Rising EPS usually means the business is earning more for each owner.`,
+    value: ({eps}) => (eps === undefined ? NOT_AVAILABLE : formatPrice(eps)),
+    explain: ({eps}, company) =>
+      eps === undefined
+        ? `Earnings per share: the company’s profit over the past year divided by its number of shares. ${missing(company)}`
+        : `Earnings per share: the company’s profit over the past year divided by its number of shares. ${shortName(company)} ${eps < 0 ? 'lost' : 'earned'} ${formatPrice(Math.abs(eps))} per share. Rising EPS usually means the business is earning more for each owner.`,
   },
   {
     id: 'revenueGrowth',
     label: 'Revenue growth',
-    value: overview => formatChange(overview.revenueGrowth),
-    explain: (overview, company) =>
-      `How much sales changed compared with a year earlier. Sales at ${shortName(company)} ${overview.revenueGrowth < 0 ? 'fell' : 'grew'} ${formatPercent(overview.revenueGrowth)}. Growing sales can support a higher share price; shrinking sales are worth a closer look.`,
+    value: ({revenueGrowth}) =>
+      revenueGrowth === undefined ? NOT_AVAILABLE : formatChange(revenueGrowth),
+    explain: ({revenueGrowth}, company) =>
+      revenueGrowth === undefined
+        ? `How much sales changed compared with a year earlier. ${missing(company)}`
+        : `How much sales changed compared with a year earlier. Sales at ${shortName(company)} ${revenueGrowth < 0 ? 'fell' : 'grew'} ${formatPercent(revenueGrowth)}. Growing sales can support a higher share price; shrinking sales are worth a closer look.`,
   },
 ];

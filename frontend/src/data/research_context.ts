@@ -13,9 +13,8 @@ import {SampleResearchClient} from './sample_research_client';
  * (VITE_API_BASE_URL), otherwise sample data only.
  */
 export function createResearchClient(apiBaseUrl?: string): ResearchClient {
-  const sample = new SampleResearchClient();
   const baseUrl = apiBaseUrl?.trim();
-  return baseUrl ? new ApiResearchClient(baseUrl, sample) : sample;
+  return baseUrl ? new ApiResearchClient(baseUrl) : new SampleResearchClient();
 }
 
 export const ResearchClientContext = createContext<ResearchClient | undefined>(

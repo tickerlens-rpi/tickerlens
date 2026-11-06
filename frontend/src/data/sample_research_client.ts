@@ -77,7 +77,7 @@ export class SampleResearchClient implements ResearchClient {
       return [];
     }
     return [...coverage.articles].sort((a, b) =>
-      b.publishedAt.localeCompare(a.publishedAt),
+      (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''),
     );
   }
 

@@ -25,20 +25,26 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  api:
-    name: API checks
+  backend:
+    name: ${{ matrix.service }} checks
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [central_api, scrapper_api, scheduler]
     defaults:
       run:
-        working-directory: api
+        working-directory: ${{ matrix.service }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: api/requirements*.txt
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check .
-      - run: ruff format --check .
-      - run: pytest
+          cache-dependency-path: ${{ matrix.service }}/requirements.txt
+      - run: pip install -r requirements.txt pytest ruff
+      # Syntax errors, undefined names and unused imports. The services are
+      # not yet formatted to the 80-column Google style, so no style rules.
+      - run: ruff check --select F,E9 .
+      # Database and deployment tests skip themselves without their services.
+      - run: python -m pytest -q
