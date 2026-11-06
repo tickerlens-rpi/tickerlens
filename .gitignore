@@ -29,3 +29,6 @@ Thumbs.db
 !.vscode/extensions.json
 *.swp
 *.local
+
+
+database/data/
