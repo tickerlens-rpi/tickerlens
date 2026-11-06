@@ -1,5 +1,11 @@
 # App pages and bring-your-own AI: write-up
 
+> **Update, November 2026:** this describes pull request #4 as written.
+> When it was merged with the company page, the hash routes became real
+> paths (`/research/:ticker`, `/watchlist`, `/settings`) under React Router,
+> and Settings gained a ChatGPT-plan sign-in next to the API keys. See
+> [frontend/README.md](../frontend/README.md) for the current design.
+
 Branch: `feature/app-pages-and-ai-connection`
 
 This change turns the TickerLens landing page into a small working app. It

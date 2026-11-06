@@ -17,6 +17,18 @@ frontend ──> central ──> database (Postgres)
 
 ## What the frontend can call (central, port 8000)
 
+The browser never calls port 8000 directly: the frontend container's nginx
+forwards `/api/...` to central, so the site and its API share one origin.
+Company search and lookup come from a bundled list of NYSE and NASDAQ
+companies and never touch the scrapper:
+
+| Endpoint | Out of date after |
+|---|---|
+| `GET /companies/search?q=...&limit=1..20` | never (bundled list) |
+| `GET /companies/{ticker}` | never (bundled list) |
+
+Market data:
+
 | Endpoint | Out of date after |
 |---|---|
 | `GET /companies/{ticker}/overview` | 15 min |
@@ -83,4 +95,4 @@ Run from inside each service folder: `pip install -r requirements-dev.txt`, then
 - **Capacity:** each watched ticker costs the scheduler about 5 scrapper requests per 15 minutes (overview and 4 price ranges), plus 1 news request per hour. The scrapper turns an overview into 3 Finnhub calls and a news request into 1, and the four price ranges share one Yahoo download. The scheduler waits 1 second between scrapper requests, so roughly 100 tickers is the limit before one pass takes longer than 15 minutes. Finnhub's free plan (60 calls per minute) would allow about 250.
 - **Yahoo** is an unofficial source with no published limits. It can rate-limit or block cloud IPs. If prices fail, check `docker compose logs scrapper`.
 - **Copied code:** `app/models.py` in central is a copy of the scrapper's. The scheduler has its own small copies of the database and scrapper-call code, so each container stays independent. A change to the response shapes has to be made in the scrapper and in central.
-- **Internal ports:** nothing outside the compose network should reach `scheduler` (8002) or `database`. Only publish `central` (8000) to the frontend. The scrapper's published port 8001 is for testing and can be removed.
+- **Internal ports:** only the frontend is published to the network. `central` (8000), `scrapper` (8001) and `scheduler` (8002) are bound to 127.0.0.1 for debugging and the deployment tests, so the Finnhub quota is not open to the internet.
