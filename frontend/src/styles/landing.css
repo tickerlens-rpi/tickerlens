@@ -240,6 +240,16 @@
   animation: rise 1s var(--ease-out) 300ms both;
 }
 
+/*
+ * The rise animation gives every line of the hero its own layer, painted in
+ * page order, so the hint and the sample card would cover the search
+ * suggestions. Lift the search's layer above them.
+ */
+.hero__search {
+  position: relative;
+  z-index: 20;
+}
+
 .hero__title {
   max-width: 12ch;
   font-size: var(--text-hero);

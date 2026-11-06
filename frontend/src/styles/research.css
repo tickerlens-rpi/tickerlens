@@ -9,8 +9,13 @@
 
 /* Company search --------------------------------------------------------- */
 
+/*
+ * Its own layer keeps the open suggestions above whatever follows the search
+ * on the page, and below the sticky site header (z-index 30) when scrolling.
+ */
 .company-search {
   position: relative;
+  z-index: 20;
   max-width: 34rem;
 }
 

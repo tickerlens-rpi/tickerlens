@@ -18,7 +18,7 @@ export function Hero() {
             into plain-language research you can actually read, with the source
             behind every claim.
           </p>
-          <div id="search">
+          <div id="search" className="hero__search">
             <CompanySearch />
           </div>
           <p className="hero__hint">
