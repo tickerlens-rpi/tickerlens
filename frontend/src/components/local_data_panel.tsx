@@ -39,8 +39,9 @@ export function LocalDataPanel({onCleared}: LocalDataPanelProps) {
     <div className="local-data">
       <ul className="local-data__list">
         <li>
-          <strong>AI connection</strong>: which AI you use and your API key.
-          Saved in this browser, or only in this tab if you chose that.
+          <strong>AI connection</strong>: which AI you use and your API key or
+          ChatGPT sign-in. Saved in this browser, or only in this tab if you
+          chose that.
         </li>
         <li>
           <strong>Watchlist and notes</strong>: saved in this browser.
@@ -49,14 +50,20 @@ export function LocalDataPanel({onCleared}: LocalDataPanelProps) {
           <strong>Text size</strong>: saved in this browser.
         </li>
         <li>
+          <strong>News summaries</strong>: kept in this browser for six hours,
+          so reopening a company does not ask your AI again.
+        </li>
+        <li>
           <strong>Conversations</strong>: not saved. They disappear when you
           leave the research page.
         </li>
       </ul>
       <p>
-        When you ask a question, your browser sends it, with your key, straight
-        to the AI company you picked. TickerLens has no server in between, and
-        the site is built so it can only talk to Anthropic or OpenAI.
+        With an API key, your browser sends questions, with your key, straight
+        to Anthropic or OpenAI; TickerLens has no server in between. With a
+        ChatGPT plan, questions pass through the TickerLens server to
+        chatgpt.com, which forwards them without keeping anything. The site is
+        built so it cannot send your data anywhere else.
       </p>
 
       <div className="local-data__actions">
