@@ -1,14 +1,10 @@
-# One command runs everything: docker compose up -d --build
-# Settings come from .env (copy .env.example). Only the frontend is published
-# to the network; it forwards /api to central. The other services' ports are
-# open on this machine only, for debugging and the deployment tests.
 services:
   frontend:
     build: ./frontend
     image: frontend-image
     container_name: frontend-container
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "80:80"
     depends_on:
       - central
     restart: unless-stopped
