@@ -109,7 +109,11 @@ export function ResearchChat({
         setStatus({
           kind: 'error',
           message: describeAiError(error, connection.provider),
-          quota: error instanceof AiError && error.kind === 'quota',
+          // A ChatGPT plan's limit refills by itself; there is no bill to pay.
+          quota:
+            error instanceof AiError &&
+            error.kind === 'quota' &&
+            connection.provider !== 'codex',
         });
       }
     } finally {
