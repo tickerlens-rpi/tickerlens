@@ -5,13 +5,23 @@ import {defineConfig} from 'vitest/config';
 /**
  * Hosts the browser may send data to. Users' API keys go only to the AI
  * provider they picked, so the page is not allowed to connect anywhere else.
- * Add the central API's origin here when it exists.
+ * The central API (`/api`) and the ChatGPT relay (`/ai-proxy/codex`) are on
+ * the site's own origin. auth.openai.com handles signing in with a ChatGPT
+ * plan.
  */
 const CONNECT_SOURCES = [
   "'self'",
   'https://api.anthropic.com',
   'https://api.openai.com',
+  'https://auth.openai.com',
 ];
+
+/**
+ * What the ChatGPT relay calls itself to chatgpt.com, as CLIProxyAPI does.
+ * Keep in step with the same header in `nginx.conf`.
+ */
+const CODEX_USER_AGENT =
+  'codex-tui/0.154.0 (Mac OS 26.5.2; arm64) iTerm.app/3.6.11 (codex-tui; 0.154.0)';
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -57,6 +67,32 @@ function contentSecurityPolicy(): Plugin {
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
   plugins: [react(), contentSecurityPolicy()],
+  server: {
+    proxy: {
+      // The central API, as nginx serves it in the Docker image. Point it
+      // elsewhere with TICKERLENS_API_TARGET.
+      '/api': {
+        target: process.env.TICKERLENS_API_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api/, ''),
+      },
+      // The ChatGPT relay, as nginx serves it in the Docker image.
+      '/ai-proxy/codex': {
+        target: 'https://chatgpt.com',
+        changeOrigin: true,
+        rewrite: path =>
+          path.replace(/^\/ai-proxy\/codex/, '/backend-api/codex'),
+        configure: proxy => {
+          proxy.on('proxyReq', request => {
+            request.removeHeader('origin');
+            request.removeHeader('referer');
+            request.removeHeader('cookie');
+            request.setHeader('user-agent', CODEX_USER_AGENT);
+          });
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

@@ -19,7 +19,7 @@ export function SettingsPage() {
       <PageHeading eyebrow="Settings" title="Settings">
         <p>
           Everything on this page is saved in this browser, on your computer.
-          TickerLens never receives it.
+          TickerLens does not store it.
         </p>
       </PageHeading>
 
@@ -30,34 +30,42 @@ export function SettingsPage() {
               Connect your AI
             </h2>
             <p>
-              TickerLens explains stocks using Claude or ChatGPT through your
-              own developer account. You connect it once with an{' '}
+              TickerLens summarizes news and answers questions using your own
+              Claude or ChatGPT. Connect it once with an{' '}
               <strong>API key</strong>, a password-like code that lets this site
-              ask the AI questions on your behalf.
+              ask the AI on your behalf, or sign in with your ChatGPT plan.
             </p>
             <details className="faq">
               <summary>Can I use my ChatGPT Plus or Claude Pro plan?</summary>
               <p>
-                Not directly. OpenAI and Anthropic only let their monthly chat
-                plans be used inside their own apps, and they do not offer a way
-                for other websites to sign in with them. A developer account
-                with the same company is the supported route. It is billed per
-                question instead of monthly, and usually costs a few cents per
-                question. If either company adds a sign-in option for other
-                sites, TickerLens will add it here.
+                <strong>ChatGPT: yes, as an experiment.</strong> Choose “ChatGPT
+                plan” and sign in the same way OpenAI’s Codex app does. Answers
+                then count toward your plan’s Codex usage limits instead of
+                costing per question. OpenAI does not officially offer this to
+                other websites, so it may stop working; an API key is the
+                dependable route.
+              </p>
+              <p>
+                <strong>Claude: no.</strong> Anthropic only lets its Pro and Max
+                plans be used in its own apps, so connect a Claude API key
+                instead. It is billed per question, usually a few cents.
               </p>
             </details>
             <details className="faq">
               <summary>Is it safe to paste my key here?</summary>
               <p>
-                Your key stays in this browser on your computer. Questions go
-                from your computer straight to Anthropic or OpenAI, with no
-                TickerLens server in between, and the site is built so it can
-                only talk to those two companies. Anyone who uses this browser
-                profile could find the key, so on a shared computer choose “This
-                tab only”. For extra peace of mind, make a key just for
-                TickerLens, set a spending limit, and delete the key from the
-                provider’s site whenever you like.
+                Your key or sign-in stays in this browser on your computer. With
+                an API key, questions go from your computer straight to
+                Anthropic or OpenAI, with no TickerLens server in between. With
+                a ChatGPT plan, chatgpt.com does not accept questions sent from
+                other websites, so they pass through the TickerLens server,
+                which forwards them without keeping anything.
+              </p>
+              <p>
+                Anyone who uses this browser profile could find the key, so on a
+                shared computer choose “This tab only”. For extra peace of mind,
+                make a key just for TickerLens, set a spending limit, and delete
+                the key from the provider’s site whenever you like.
               </p>
             </details>
           </div>

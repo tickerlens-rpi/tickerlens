@@ -4,12 +4,12 @@
  */
 
 import OpenAI from 'openai';
-import {AiError} from './chat';
+import {AiError, apiKeyOf} from './chat';
 import type {
   ChatEnding,
   ChatRequest,
   ModelOption,
-  ProviderClient,
+  KeyProviderClient,
 } from './chat';
 
 /** Model families that are not text chat models. */
@@ -61,7 +61,7 @@ async function streamChat({
   onText,
   signal,
 }: ChatRequest): Promise<ChatEnding> {
-  const client = createClient(connection.apiKey);
+  const client = createClient(apiKeyOf(connection));
   try {
     const stream = await client.chat.completions.create(
       {
@@ -117,4 +117,4 @@ async function listModels(
 }
 
 /** OpenAI implementation of the provider interface. */
-export const OPENAI_PROVIDER: ProviderClient = {streamChat, listModels};
+export const OPENAI_PROVIDER: KeyProviderClient = {streamChat, listModels};

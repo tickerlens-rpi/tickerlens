@@ -1,13 +1,15 @@
 /**
- * @fileoverview Provider-neutral chat API used by the research page.
+ * @fileoverview Provider-neutral chat API used by the research chat and the
+ * news summary.
  *
- * Provider SDKs are loaded on demand, so the landing page does not download
- * them. Both SDKs run in the browser and call the provider directly with the
- * user's own key.
+ * Provider modules are loaded on demand, so the landing page does not
+ * download them. The Anthropic and OpenAI SDKs run in the browser and call
+ * the provider directly with the user's own key; ChatGPT-plan requests go
+ * through the TickerLens server's relay (see `codex_provider.ts`).
  */
 
 import {PROVIDERS} from './connection';
-import type {AiConnection, AiProvider} from './connection';
+import type {AiConnection, AiProvider, ApiKeyProvider} from './connection';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -56,10 +58,16 @@ export class AiError extends Error {
 /** What each provider module implements. */
 export interface ProviderClient {
   streamChat(request: ChatRequest): Promise<ChatEnding>;
+}
+
+/** What the API-key providers add: listing the models a key can use. */
+export interface KeyProviderClient extends ProviderClient {
   listModels(apiKey: string, signal?: AbortSignal): Promise<ModelOption[]>;
 }
 
-async function loadProvider(provider: AiProvider): Promise<ProviderClient> {
+async function loadKeyProvider(
+  provider: ApiKeyProvider,
+): Promise<KeyProviderClient> {
   switch (provider) {
     case 'anthropic':
       return (await import('./anthropic_provider')).ANTHROPIC_PROVIDER;
@@ -70,6 +78,20 @@ async function loadProvider(provider: AiProvider): Promise<ProviderClient> {
       return unreachable;
     }
   }
+}
+
+async function loadProvider(provider: AiProvider): Promise<ProviderClient> {
+  return provider === 'codex'
+    ? (await import('./codex_provider')).CODEX_PROVIDER
+    : loadKeyProvider(provider);
+}
+
+/** The API key of a key connection; a ChatGPT-plan connection has none. */
+export function apiKeyOf(connection: AiConnection): string {
+  if (connection.provider === 'codex') {
+    throw new AiError('other', 'This connection has no API key.');
+  }
+  return connection.apiKey;
 }
 
 /** Streams a reply from the connected model. */
@@ -83,16 +105,38 @@ export async function streamChat(request: ChatRequest): Promise<ChatEnding> {
  * listing models costs nothing and fails fast on a bad key.
  */
 export async function listModels(
-  provider: AiProvider,
+  provider: ApiKeyProvider,
   apiKey: string,
   signal?: AbortSignal,
 ): Promise<ModelOption[]> {
-  const client = await loadProvider(provider);
+  const client = await loadKeyProvider(provider);
   return client.listModels(apiKey, signal);
 }
 
+/** Advice for errors when the user signed in with a ChatGPT plan. */
+const CODEX_ADVICE: Partial<Record<AiErrorKind, string>> = {
+  auth: 'Your ChatGPT sign-in has expired or was signed out. Sign in again in Settings.',
+  permission:
+    'chatgpt.com refused the request. Your plan may not include Codex, or OpenAI may be blocking sign-ins from other sites. Try another model under “Advanced” in Settings, or connect with an API key.',
+  quota:
+    'You have used up your ChatGPT plan’s Codex allowance for now. It refills after a while; try again later, or connect an API key in Settings.',
+  model:
+    'This model is not available on your ChatGPT plan. Choose another under “Advanced” in Settings.',
+  network:
+    'Could not reach ChatGPT through the TickerLens server. Check your internet connection and try again.',
+  other: 'ChatGPT had a problem answering. Try again in a moment.',
+};
+
 /** Plain-language advice for an error, shown under the chat or the form. */
 export function describeAiError(error: unknown, provider?: AiProvider): string {
+  if (provider === 'codex' && error instanceof AiError) {
+    const advice = CODEX_ADVICE[error.kind];
+    if (advice) {
+      return error.kind === 'other'
+        ? `${advice} (Details: ${error.message})`
+        : advice;
+    }
+  }
   const info = provider ? PROVIDERS[provider] : undefined;
   const company = info?.label ?? 'The AI provider';
   if (!(error instanceof AiError)) {

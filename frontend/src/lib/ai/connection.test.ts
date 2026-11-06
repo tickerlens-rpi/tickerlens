@@ -2,7 +2,10 @@ import {describe, expect, it} from 'vitest';
 import {
   AI_CONNECTION_KEY,
   checkApiKey,
+  codexModelsFor,
+  describeAccount,
   forgetConnection,
+  isAiConnection,
   maskApiKey,
   readConnection,
   saveConnection,
@@ -66,5 +69,46 @@ describe('saved connection', () => {
     expect(readConnection()).toBeUndefined();
     expect(localStorage.getItem(AI_CONNECTION_KEY)).toBeNull();
     expect(sessionStorage.getItem(AI_CONNECTION_KEY)).toBeNull();
+  });
+});
+
+describe('ChatGPT plan connections', () => {
+  const CODEX: AiConnection = {
+    provider: 'codex',
+    model: 'gpt-6-luna',
+    persistence: 'device',
+    tokens: {
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      idToken: '',
+      accountId: 'acct-123',
+      email: 'paul@example.com',
+      plan: 'plus',
+      expiresAt: 1_900_000_000_000,
+    },
+  };
+
+  it('saves and reads back a signed-in plan', () => {
+    expect(saveConnection(CODEX)).toBe(true);
+    expect(readConnection()).toEqual(CODEX);
+  });
+
+  it('rejects a plan connection without its tokens', () => {
+    expect(isAiConnection({...CODEX, tokens: undefined})).toBe(false);
+    expect(
+      isAiConnection({...CODEX, tokens: {...CODEX.tokens, accountId: ''}}),
+    ).toBe(false);
+    expect(isAiConnection({...CODEX, provider: 'anthropic'})).toBe(false);
+  });
+
+  it('names the account without showing any secret', () => {
+    expect(describeAccount(CODEX)).toBe('paul@example.com (Plus plan)');
+    expect(describeAccount(CLAUDE)).toBe(`key ${maskApiKey(CLAUDE.apiKey)}`);
+  });
+
+  it('offers paid-only models to paid plans only', () => {
+    expect(codexModelsFor('free')).not.toContain('gpt-6.1-sol');
+    expect(codexModelsFor('free')).toContain('gpt-6-luna');
+    expect(codexModelsFor('pro')).toContain('gpt-6.1-sol');
   });
 });

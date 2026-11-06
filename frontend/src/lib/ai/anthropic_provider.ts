@@ -8,12 +8,12 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import {AiError} from './chat';
+import {AiError, apiKeyOf} from './chat';
 import type {
   ChatEnding,
   ChatRequest,
   ModelOption,
-  ProviderClient,
+  KeyProviderClient,
 } from './chat';
 
 /** Models that accept `output_config.effort`. */
@@ -87,7 +87,7 @@ async function streamChat({
   onText,
   signal,
 }: ChatRequest): Promise<ChatEnding> {
-  const client = createClient(connection.apiKey);
+  const client = createClient(apiKeyOf(connection));
   const {model} = connection;
   const useFallbacks = FALLBACK_MODELS.has(model);
   try {
@@ -149,4 +149,4 @@ async function listModels(
 }
 
 /** Claude implementation of the provider interface. */
-export const ANTHROPIC_PROVIDER: ProviderClient = {streamChat, listModels};
+export const ANTHROPIC_PROVIDER: KeyProviderClient = {streamChat, listModels};

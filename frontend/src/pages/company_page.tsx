@@ -1,6 +1,6 @@
 import {useCallback} from 'react';
 import type {ReactNode} from 'react';
-import {Navigate, useParams} from 'react-router';
+import {Link, Navigate, useParams} from 'react-router';
 import {CompanySearch} from '../components/company_search';
 import {NewsList} from '../components/news_list';
 import {NewsSummary} from '../components/news_summary';
@@ -9,6 +9,7 @@ import {PriceChart} from '../components/price_chart';
 import {QuoteHeader} from '../components/quote_header';
 import {ResearchDisclaimer} from '../components/research_disclaimer';
 import {SampleDataNotice} from '../components/sample_data_notice';
+import {WatchButton} from '../components/watch_button';
 import type {Company} from '../data/research';
 import {useResearchClient} from '../data/research_context';
 import {useDocumentTitle} from '../lib/hooks';
@@ -94,6 +95,15 @@ function CompanyResearch({company}: {company: Company}) {
     <>
       {client.usesSampleData && <SampleDataNotice />}
       <QuoteHeader company={company} overview={figures} />
+      <div className="research__actions">
+        <WatchButton ticker={company.ticker} />
+        <Link
+          className="button"
+          to={`/research/${encodeURIComponent(company.ticker)}`}
+        >
+          Ask AI about {company.ticker}
+        </Link>
+      </div>
       <ResearchDisclaimer />
       {overviewBody}
       <div className="research__grid">

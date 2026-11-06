@@ -63,7 +63,7 @@ describe('AiConnectionForm', () => {
     const user = userEvent.setup();
     render(<AiConnectionForm />);
 
-    await user.click(screen.getByRole('radio', {name: /ChatGPT/}));
+    await user.click(screen.getByRole('radio', {name: /^ChatGPT\s*by OpenAI/}));
     await user.type(screen.getByLabelText('OpenAI API key'), 'sk-proj-abc');
     await user.click(screen.getByRole('button', {name: 'Connect'}));
 
@@ -121,5 +121,47 @@ describe('AiConnectionForm', () => {
 
     expect(readConnection()).toBeUndefined();
     expect(screen.getByLabelText('Anthropic API key')).toHaveValue('');
+  });
+
+  it('offers to sign in with a ChatGPT plan instead of a key', async () => {
+    const user = userEvent.setup();
+    render(<AiConnectionForm />);
+
+    await user.click(screen.getByRole('radio', {name: /^ChatGPT plan/}));
+
+    expect(
+      screen.getByRole('button', {name: 'Sign in with ChatGPT'}),
+    ).toBeVisible();
+    expect(screen.queryByLabelText(/API key/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {name: 'Connect'}),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows which ChatGPT account is signed in', () => {
+    render(
+      <AiConnectionForm
+        connection={{
+          provider: 'codex',
+          model: 'gpt-6-luna',
+          persistence: 'device',
+          tokens: {
+            accessToken: 'a',
+            refreshToken: 'r',
+            idToken: '',
+            accountId: 'acct',
+            email: 'paul@example.com',
+            plan: 'plus',
+            expiresAt: Date.now() + 3600_000,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'paul@example.com (Plus plan)',
+    );
+    expect(
+      screen.getByRole('button', {name: 'Sign out and forget'}),
+    ).toBeVisible();
   });
 });

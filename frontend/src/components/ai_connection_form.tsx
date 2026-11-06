@@ -6,17 +6,21 @@ import {
   AI_PROVIDERS,
   PROVIDERS,
   checkApiKey,
+  codexModelsFor,
+  describeAccount,
   forgetConnection,
-  maskApiKey,
   modelDisplayName,
   saveConnection,
 } from '../lib/ai/connection';
 import type {
   AiConnection,
   AiProvider,
+  ApiKeyProvider,
+  CodexTokens,
   KeyProblem,
   Persistence,
 } from '../lib/ai/connection';
+import {CodexSignIn} from './codex_sign_in';
 
 type FormStatus =
   | {kind: 'idle'}
@@ -25,7 +29,7 @@ type FormStatus =
   | {kind: 'forgotten'}
   | {kind: 'error'; message: string; keyProblem: boolean};
 
-const KEY_PROBLEMS: Record<KeyProblem, (provider: AiProvider) => string> = {
+const KEY_PROBLEMS: Record<KeyProblem, (provider: ApiKeyProvider) => string> = {
   empty: () => 'Paste your API key first.',
   whitespace: () =>
     'The key contains spaces or line breaks. Copy it again without them.',
@@ -51,7 +55,7 @@ const PERSISTENCE_OPTIONS: ReadonlyArray<{
 ];
 
 /** Step-by-step help for getting a key from each provider. */
-const KEY_STEPS: Record<AiProvider, ReactNode[]> = {
+const KEY_STEPS: Record<ApiKeyProvider, ReactNode[]> = {
   anthropic: [
     <>
       Sign in at{' '}
@@ -99,9 +103,10 @@ interface AiConnectionFormProps {
 }
 
 /**
- * Lets the user connect their own Claude or ChatGPT API key. The key is
- * checked by calling the provider directly from the browser (listing models,
- * which costs nothing) and then saved in this browser only.
+ * Lets the user connect their own Claude or ChatGPT API key, or sign in with
+ * a ChatGPT plan. A key is checked by calling the provider directly from the
+ * browser (listing models, which costs nothing); either way the connection
+ * is saved in this browser only.
  */
 export function AiConnectionForm({
   connection,
@@ -114,7 +119,9 @@ export function AiConnectionForm({
   const [provider, setProvider] = useState<AiProvider>(
     connection?.provider ?? 'anthropic',
   );
-  const [apiKey, setApiKey] = useState(connection?.apiKey ?? '');
+  const [apiKey, setApiKey] = useState(
+    connection && connection.provider !== 'codex' ? connection.apiKey : '',
+  );
   const [model, setModel] = useState(
     connection?.model ?? PROVIDERS.anthropic.defaultModel,
   );
@@ -137,13 +144,42 @@ export function AiConnectionForm({
     }
     abortRef.current?.abort();
     setProvider(next);
-    setModel(PROVIDERS[next].defaultModel);
+    setModel(
+      connection?.provider === next
+        ? connection.model
+        : PROVIDERS[next].defaultModel,
+    );
     setModels([]);
     setStatus({kind: 'idle'});
     // Keep the key only if it belongs to the newly chosen provider.
-    if (checkApiKey(next, apiKey.trim()) !== undefined) {
+    if (next === 'codex' || checkApiKey(next, apiKey.trim()) !== undefined) {
       setApiKey('');
     }
+  }
+
+  function handleSignedIn(tokens: CodexTokens) {
+    const allowed = codexModelsFor(tokens.plan);
+    let chosen = model.trim() || PROVIDERS.codex.defaultModel;
+    let modelReplaced: string | undefined;
+    if (!allowed.includes(chosen)) {
+      modelReplaced = chosen;
+      chosen = PROVIDERS.codex.defaultModel;
+    }
+    const saved = saveConnection({
+      provider: 'codex',
+      tokens,
+      model: chosen,
+      persistence,
+    });
+    if (!saved) {
+      fail(
+        'Your browser would not let TickerLens save the sign-in. Storage may be full or blocked by privacy settings.',
+        false,
+      );
+      return;
+    }
+    setModel(chosen);
+    setStatus({kind: 'saved', modelReplaced});
   }
 
   function fail(message: string, keyProblem: boolean) {
@@ -156,6 +192,17 @@ export function AiConnectionForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (checking) {
+      return;
+    }
+    if (provider === 'codex') {
+      // Signing in happens in CodexSignIn; here only settings change.
+      if (connection?.provider === 'codex') {
+        const allowed = codexModelsFor(connection.tokens.plan);
+        const chosen = allowed.includes(model) ? model : connection.model;
+        saveConnection({...connection, model: chosen, persistence});
+        setModel(chosen);
+        setStatus({kind: 'saved'});
+      }
       return;
     }
     const key = apiKey.trim();
@@ -215,6 +262,10 @@ export function AiConnectionForm({
   }
 
   const connected = connection !== undefined && status.kind !== 'forgotten';
+  const codexConnected = connected && connection?.provider === 'codex';
+  const codexModels = codexModelsFor(
+    connection?.provider === 'codex' ? connection.tokens.plan : 'pro',
+  );
 
   return (
     <form className="settings-form" onSubmit={handleSubmit} noValidate>
@@ -241,59 +292,70 @@ export function AiConnectionForm({
         </div>
       </fieldset>
 
-      <details className="key-help" open={!connection}>
-        <summary>How do I get a key? (about 3 minutes)</summary>
-        <ol className="key-help__steps">
-          {KEY_STEPS[provider].map((step, index) => (
-            <li key={index}>{step}</li>
-          ))}
-        </ol>
-        <p className="key-help__tip">
-          <strong>Tip:</strong> set a monthly spending limit on the{' '}
-          <a href={info.billingUrl} target="_blank" rel="noreferrer">
-            {info.label} billing page
-          </a>{' '}
-          so you are never charged more than you expect.
-        </p>
-      </details>
+      {provider === 'codex' ? (
+        !codexConnected && <CodexSignIn onSignedIn={handleSignedIn} />
+      ) : (
+        <>
+          <details className="key-help" open={!connection}>
+            <summary>How do I get a key? (about 3 minutes)</summary>
+            <ol className="key-help__steps">
+              {KEY_STEPS[provider].map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+            <p className="key-help__tip">
+              <strong>Tip:</strong> set a monthly spending limit on the{' '}
+              <a href={info.billingUrl} target="_blank" rel="noreferrer">
+                {info.label} billing page
+              </a>{' '}
+              so you are never charged more than you expect.
+            </p>
+          </details>
 
-      <div className="field">
-        <label className="field__label" htmlFor={keyId}>
-          {info.label} API key
-        </label>
-        <div className="key-input">
-          <input
-            id={keyId}
-            ref={keyRef}
-            className="text-input text-input--mono"
-            type={showKey ? 'text' : 'password'}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={info.keyPlaceholder}
-            value={apiKey}
-            onChange={event => setApiKey(event.target.value)}
-            aria-invalid={keyInvalid}
-            aria-describedby={
-              keyInvalid ? `${statusId} ${keyHintId}` : keyHintId
-            }
-          />
-          <button
-            type="button"
-            className="button"
-            aria-pressed={showKey}
-            onClick={() => setShowKey(!showKey)}
-          >
-            {showKey ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        <p className="field__hint" id={keyHintId}>
-          You pay {info.label} directly for what you use, {info.costHint} with
-          the default model. This is separate from any {info.chatAccount}.
-        </p>
-      </div>
+          <div className="field">
+            <label className="field__label" htmlFor={keyId}>
+              {info.label} API key
+            </label>
+            <div className="key-input">
+              <input
+                id={keyId}
+                ref={keyRef}
+                className="text-input text-input--mono"
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={info.keyPlaceholder}
+                value={apiKey}
+                onChange={event => setApiKey(event.target.value)}
+                aria-invalid={keyInvalid}
+                aria-describedby={
+                  keyInvalid ? `${statusId} ${keyHintId}` : keyHintId
+                }
+              />
+              <button
+                type="button"
+                className="button"
+                aria-pressed={showKey}
+                onClick={() => setShowKey(!showKey)}
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <p className="field__hint" id={keyHintId}>
+              You pay {info.label} directly for what you use, {info.costHint}{' '}
+              with the default model. This is separate from any{' '}
+              {info.chatAccount}.
+            </p>
+          </div>
+        </>
+      )}
 
       <fieldset className="field">
-        <legend className="field__label">Where to keep the key</legend>
+        <legend className="field__label">
+          {provider === 'codex'
+            ? 'Where to keep your sign-in'
+            : 'Where to keep the key'}
+        </legend>
         {PERSISTENCE_OPTIONS.map(option => (
           <label key={option.value} className="radio-row">
             <input
@@ -317,7 +379,20 @@ export function AiConnectionForm({
           <label className="field__label" htmlFor={modelId}>
             AI model
           </label>
-          {models.length > 0 ? (
+          {provider === 'codex' ? (
+            <select
+              id={modelId}
+              className="text-input"
+              value={model}
+              onChange={event => setModel(event.target.value)}
+            >
+              {codexModels.map(id => (
+                <option key={id} value={id}>
+                  {modelDisplayName(id)}
+                </option>
+              ))}
+            </select>
+          ) : models.length > 0 ? (
             <select
               id={modelId}
               className="text-input"
@@ -347,23 +422,28 @@ export function AiConnectionForm({
             Which version of {info.product} answers your questions. The default,{' '}
             {modelDisplayName(info.defaultModel)}, is a good balance of quality
             and cost; you do not need to change it.
-            {models.length === 0 &&
+            {provider !== 'codex' &&
+              models.length === 0 &&
               ' After you verify your key you can pick from the models it can use.'}
           </p>
         </div>
       </details>
 
       <div className="settings-form__actions">
-        <button
-          type="submit"
-          className="button button--primary"
-          aria-disabled={checking}
-        >
-          {checking ? 'Checking…' : connected ? 'Save changes' : 'Connect'}
-        </button>
+        {(provider !== 'codex' || codexConnected) && (
+          <button
+            type="submit"
+            className="button button--primary"
+            aria-disabled={checking}
+          >
+            {checking ? 'Checking…' : connected ? 'Save changes' : 'Connect'}
+          </button>
+        )}
         {connected && (
           <button type="button" className="button" onClick={handleForget}>
-            Disconnect and forget key
+            {connection?.provider === 'codex'
+              ? 'Sign out and forget'
+              : 'Disconnect and forget key'}
           </button>
         )}
       </div>
@@ -402,7 +482,7 @@ function statusMessage(
   switch (status.kind) {
     case 'idle':
       return connection
-        ? `Connected to ${PROVIDERS[connection.provider].product} (${modelDisplayName(connection.model)}) with key ${maskApiKey(connection.apiKey)}.`
+        ? `Connected to ${PROVIDERS[connection.provider].product} (${modelDisplayName(connection.model)}) with ${describeAccount(connection)}.`
         : 'Not connected yet.';
     case 'checking':
       return 'Checking your key with the provider…';
@@ -415,10 +495,12 @@ function statusMessage(
         connection?.persistence === 'session'
           ? 'kept in this tab only'
           : 'saved on this computer';
-      return `Connected. Your key works and is ${where}.${replaced}`;
+      return connection?.provider === 'codex'
+        ? `Signed in as ${describeAccount(connection)}. Your sign-in is ${where}.${replaced}`
+        : `Connected. Your key works and is ${where}.${replaced}`;
     }
     case 'forgotten':
-      return 'Disconnected. Your key has been deleted from this computer.';
+      return 'Disconnected. Your key or sign-in has been deleted from this computer.';
     case 'error':
       return status.message;
     default: {

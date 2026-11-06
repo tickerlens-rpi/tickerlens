@@ -1,19 +1,29 @@
 /**
- * @fileoverview The user's own AI connection: provider, API key and model.
+ * @fileoverview The user's own AI connection: an API key, or a ChatGPT plan
+ * signed in the way OpenAI's Codex app signs in.
  *
  * The connection is stored only in this browser, on the user's computer.
- * Requests made with it go straight from the browser to the provider
- * (api.anthropic.com or api.openai.com); TickerLens servers never see the key.
+ * API-key requests go straight from the browser to the provider
+ * (api.anthropic.com or api.openai.com); TickerLens servers never see the
+ * key. ChatGPT-plan requests pass through the TickerLens server on their way
+ * to chatgpt.com, because chatgpt.com does not accept them from other sites;
+ * the server forwards them without storing anything (see `codex_provider.ts`).
  * In production builds a Content-Security-Policy (see `vite.config.ts`) stops
  * the page from sending requests anywhere else.
  */
 
 import {STORAGE_PREFIX, readJson, removeKey, writeJson} from '../local_data';
 
-export const AI_PROVIDERS = ['anthropic', 'openai'] as const;
+export const AI_PROVIDERS = ['anthropic', 'openai', 'codex'] as const;
 
-/** Which company's API the user connected. */
+/**
+ * How the user connected: an Anthropic or OpenAI API key, or `codex`, a
+ * ChatGPT plan signed in through OpenAI's Codex sign-in.
+ */
 export type AiProvider = (typeof AI_PROVIDERS)[number];
+
+/** The providers connected with a pasted API key. */
+export type ApiKeyProvider = Exclude<AiProvider, 'codex'>;
 
 /**
  * Where the connection is kept. `device` survives restarts (localStorage);
@@ -21,14 +31,50 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
  */
 export type Persistence = 'device' | 'session';
 
-export interface AiConnection {
-  provider: AiProvider;
+/** A connection made with a pasted Anthropic or OpenAI API key. */
+export interface ApiKeyConnection {
+  provider: ApiKeyProvider;
   apiKey: string;
   model: string;
   persistence: Persistence;
 }
 
+/** What a ChatGPT sign-in returns, kept so requests can be made later. */
+export interface CodexTokens {
+  accessToken: string;
+  /** Used once to get new tokens; OpenAI replaces it each time. */
+  refreshToken: string;
+  idToken: string;
+  /** The ChatGPT account the requests are billed to. */
+  accountId: string;
+  email?: string;
+  /** ChatGPT plan, such as free, plus or pro. */
+  plan?: string;
+  /** When the access token stops working, in milliseconds since 1970. */
+  expiresAt: number;
+}
+
+/** A connection made by signing in with a ChatGPT plan. */
+export interface CodexConnection {
+  provider: 'codex';
+  tokens: CodexTokens;
+  model: string;
+  persistence: Persistence;
+}
+
+export type AiConnection = ApiKeyConnection | CodexConnection;
+
 export const AI_CONNECTION_KEY = `${STORAGE_PREFIX}aiConnection`;
+
+/**
+ * Where the TickerLens server relays ChatGPT-plan requests to chatgpt.com.
+ * The dev server always has the relay (see `vite.config.ts`); a production
+ * build has it only when VITE_CODEX_RELAY_URL is set, as the Docker image
+ * does. Static hosts such as Cloudflare Pages have no relay.
+ */
+export const CODEX_RELAY_URL: string | undefined =
+  import.meta.env.VITE_CODEX_RELAY_URL?.trim() ||
+  (import.meta.env.DEV ? '/ai-proxy/codex' : undefined);
 
 /** Display details for each provider. */
 export interface ProviderInfo {
@@ -72,7 +118,42 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     defaultModel: 'gpt-5',
     costHint: 'usually a few cents per question',
   },
+  codex: {
+    label: 'OpenAI',
+    product: 'ChatGPT plan',
+    keyPrefix: '',
+    keyPlaceholder: '',
+    keysUrl: 'https://chatgpt.com',
+    billingUrl: 'https://chatgpt.com/#pricing',
+    consoleHost: 'chatgpt.com',
+    chatAccount: 'ChatGPT plan',
+    defaultModel: 'gpt-6-luna',
+    costHint: 'included in your ChatGPT plan, within its Codex usage limits',
+  },
 };
+
+/**
+ * Models a ChatGPT plan can use through Codex, best first. Every plan has
+ * the free ones; paid plans have them all. OpenAI offers no way to list
+ * them, so this follows the list CLIProxyAPI keeps.
+ */
+export const CODEX_MODELS: ReadonlyArray<{id: string; paidOnly: boolean}> = [
+  {id: 'gpt-6.1-sol', paidOnly: true},
+  {id: 'gpt-6-sol', paidOnly: true},
+  {id: 'gpt-6.1-terra', paidOnly: false},
+  {id: 'gpt-6-luna', paidOnly: false},
+  {id: 'gpt-5.6-sol', paidOnly: true},
+  {id: 'gpt-5.6-terra', paidOnly: false},
+  {id: 'gpt-5.6-luna', paidOnly: false},
+];
+
+/** The Codex models the signed-in plan can use. */
+export function codexModelsFor(plan: string | undefined): string[] {
+  const free = plan === undefined || plan === 'free';
+  return CODEX_MODELS.filter(model => !free || !model.paidOnly).map(
+    model => model.id,
+  );
+}
 
 const MODEL_WORDS: Record<string, string> = {
   gpt: 'GPT',
@@ -111,21 +192,53 @@ export function isAiProvider(value: unknown): value is AiProvider {
   return AI_PROVIDERS.some(provider => provider === value);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isFilledString(value: unknown): value is string {
+  return typeof value === 'string' && value !== '';
+}
+
+function isCodexTokens(value: unknown): value is CodexTokens {
+  return (
+    isRecord(value) &&
+    isFilledString(value.accessToken) &&
+    isFilledString(value.refreshToken) &&
+    typeof value.idToken === 'string' &&
+    isFilledString(value.accountId) &&
+    typeof value.expiresAt === 'number' &&
+    (value.email === undefined || typeof value.email === 'string') &&
+    (value.plan === undefined || typeof value.plan === 'string')
+  );
+}
+
 /** Validates a value read from storage. */
 export function isAiConnection(value: unknown): value is AiConnection {
-  if (typeof value !== 'object' || value === null) {
+  if (
+    !isRecord(value) ||
+    !isAiProvider(value.provider) ||
+    !isFilledString(value.model) ||
+    (value.persistence !== 'device' && value.persistence !== 'session')
+  ) {
     return false;
   }
-  // Safe: `value` is a non-null object, and every field is checked below.
-  const record = value as Record<string, unknown>;
-  return (
-    isAiProvider(record.provider) &&
-    typeof record.apiKey === 'string' &&
-    record.apiKey !== '' &&
-    typeof record.model === 'string' &&
-    record.model !== '' &&
-    (record.persistence === 'device' || record.persistence === 'session')
-  );
+  return value.provider === 'codex'
+    ? isCodexTokens(value.tokens)
+    : isFilledString(value.apiKey);
+}
+
+/** Says which account a connection uses, without revealing secrets. */
+export function describeAccount(connection: AiConnection): string {
+  if (connection.provider !== 'codex') {
+    return `key ${maskApiKey(connection.apiKey)}`;
+  }
+  const {email, plan} = connection.tokens;
+  const planName = plan
+    ? `${plan.charAt(0).toUpperCase()}${plan.slice(1)}`
+    : '';
+  const who = email ?? 'your ChatGPT account';
+  return planName ? `${who} (${planName} plan)` : who;
 }
 
 /** Why a key typed into the settings form cannot be used. */
@@ -133,7 +246,7 @@ export type KeyProblem = 'empty' | 'whitespace' | 'wrong-provider';
 
 /** Checks the shape of an API key before anything is sent anywhere. */
 export function checkApiKey(
-  provider: AiProvider,
+  provider: ApiKeyProvider,
   apiKey: string,
 ): KeyProblem | undefined {
   if (apiKey === '') {
