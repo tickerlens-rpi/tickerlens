@@ -110,7 +110,7 @@ def test_data_goes_out_of_date_after_its_limit(client, world, kind, limit):
 # ======================= scraper trouble =======================
 
 def test_scraper_down_with_no_data_is_502(client, world):
-    world.scraper_error = clients.Unavailable("down")
+    world.scraper_error = clients.UnavailableError("down")
     assert client.get(URLS["overview"]).status_code == 502
     assert world.told == ["AAPL"]  # the scheduler is told so it can fill the data in later
 
@@ -118,13 +118,13 @@ def test_scraper_down_with_no_data_is_502(client, world):
 def test_scraper_down_with_old_data_serves_it_as_stale(client, world):
     client.get(URLS["overview"])
     world.age("overview", "AAPL", None, 5000)
-    world.scraper_error = clients.Unavailable("down")
+    world.scraper_error = clients.UnavailableError("down")
     r = client.get(URLS["overview"])
     assert r.status_code == 200 and r.headers["X-Cache"] == "STALE" and r.json()["price"] == 231.45
 
 
 def test_unknown_ticker_is_404_and_not_stored_or_reported(client, world):
-    world.scraper_error = clients.NotFound("ZZZZ")
+    world.scraper_error = clients.NotFoundError("ZZZZ")
     assert client.get("/companies/ZZZZ/overview").status_code == 404
     assert world.rows == {} and world.told == []
 
@@ -168,9 +168,9 @@ def test_fetch_builds_the_right_requests(monkeypatch):
 
 
 @pytest.mark.parametrize(("response", "error"), [
-    (httpx.Response(404), clients.NotFound), (httpx.Response(502), clients.Unavailable),
-    (httpx.Response(500), clients.Unavailable), (httpx.Response(200, text="<html>"), clients.Unavailable),
-    (httpx.ConnectError("refused"), clients.Unavailable), (httpx.ReadTimeout("slow"), clients.Unavailable),
+    (httpx.Response(404), clients.NotFoundError), (httpx.Response(502), clients.UnavailableError),
+    (httpx.Response(500), clients.UnavailableError), (httpx.Response(200, text="<html>"), clients.UnavailableError),
+    (httpx.ConnectError("refused"), clients.UnavailableError), (httpx.ReadTimeout("slow"), clients.UnavailableError),
 ])
 def test_fetch_maps_failures(monkeypatch, response, error):
     def fake_get(*a, **k):

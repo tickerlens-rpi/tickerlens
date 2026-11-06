@@ -29,6 +29,11 @@ def _first(metrics: dict, *keys: str) -> float | None:
     return None
 
 
+def _finnhub_symbol(ticker: str) -> str:
+    """'BRK-B' -> 'BRK.B': Finnhub writes share classes with a dot, Yahoo with a dash."""
+    return ticker.replace("-", ".")
+
+
 def _exchange_name(raw: str | None) -> str | None:
     """'NASDAQ NMS - GLOBAL MARKET' -> 'NASDAQ'; 'NEW YORK STOCK EXCHANGE, INC.' -> 'NYSE'."""
     if not raw:
@@ -47,11 +52,12 @@ class FinnhubProvider(OverviewProvider, NewsProvider):
 
     # ---------- public interface ----------
     def get_overview(self, ticker: str) -> dict:
-        profile = self._get("/stock/profile2", symbol=ticker)
+        symbol = _finnhub_symbol(ticker)
+        profile = self._get("/stock/profile2", symbol=symbol)
         if not profile:  # Finnhub returns {} for unknown symbols
             raise TickerNotFound(ticker)
-        metrics = (self._get("/stock/metric", symbol=ticker, metric="all") or {}).get("metric") or {}
-        quote = self._get("/quote", symbol=ticker)
+        metrics = (self._get("/stock/metric", symbol=symbol, metric="all") or {}).get("metric") or {}
+        quote = self._get("/quote", symbol=symbol)
 
         price = _num(quote.get("c"))
         if not price:
@@ -75,7 +81,7 @@ class FinnhubProvider(OverviewProvider, NewsProvider):
     def get_news(self, ticker: str, limit: int) -> list[Article]:
         today = datetime.now(timezone.utc).date()
         start = today - timedelta(days=NEWS_WINDOW_DAYS)
-        data = self._get("/company-news", symbol=ticker,
+        data = self._get("/company-news", symbol=_finnhub_symbol(ticker),
                          **{"from": start.isoformat(), "to": today.isoformat()})
         if not isinstance(data, list):
             raise ProviderError("Unexpected Finnhub news response")

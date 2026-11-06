@@ -1,6 +1,22 @@
 """Response models. FastAPI turns these into the OpenAPI contract."""
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, ConfigDict
+
+
+class Company(BaseModel):
+    """A listed company, as shown in search suggestions and page headers."""
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    name: str
+    exchange: Literal["NYSE", "NASDAQ"]
+
+
+class CompanySearchResults(BaseModel):
+    """Companies matching a search, best match first."""
+    query: str
+    results: list[Company]
 
 
 class Overview(BaseModel):

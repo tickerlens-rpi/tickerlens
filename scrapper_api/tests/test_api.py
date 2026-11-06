@@ -164,6 +164,18 @@ def test_finnhub_overview_parsing(monkeypatch):
     assert (o["pe_ratio"], o["eps"], o["revenue_growth_pct"]) == (34.8, 6.65, 6.1)
 
 
+def test_finnhub_asks_for_share_classes_with_a_dot(monkeypatch):
+    symbols = []
+
+    def responder(path, params):
+        symbols.append(params["symbol"])
+        return overview_router()(path, params)
+
+    o = finnhub_with(monkeypatch, responder).get_overview("BRK-B")
+    assert symbols == ["BRK.B", "BRK.B", "BRK.B"]
+    assert o["ticker"] == "BRK-B"  # the rest of TickerLens keeps the dash
+
+
 def test_finnhub_metric_name_fallbacks(monkeypatch):
     metrics = {"metric": {"peTTM": 20.0, "epsTTM": 5.0, "revenueGrowthQuarterlyYoy": 3.3}}
     o = finnhub_with(monkeypatch, overview_router(metrics=metrics)).get_overview("AAPL")

@@ -1,11 +1,13 @@
 # Central API: frontend contract
 
-The frontend calls three read-only GET endpoints on central at `http://localhost:8000` (`http://central:8000` from inside docker compose). Every response is JSON.
+The frontend calls these read-only GET endpoints on central at `http://localhost:8000` (`http://central:8000` from inside docker compose). In the browser they live under `/api` on the frontend's own origin: the frontend container's nginx and the Vite dev server forward `/api/...` to central. Every response is JSON.
 
 ## Endpoints
 
 | Method & path | Query params | Returns |
 | --- | --- | --- |
+| `GET /companies/search` | `q` = name or ticker, 1 to 64 characters; `limit` = 1 to 20 (default 8) | CompanySearchResults |
+| `GET /companies/{ticker}` | none | Company |
 | `GET /companies/{ticker}/overview` | none | Overview |
 | `GET /companies/{ticker}/prices` | `range` = `1W`, `1M`, `1Y` or `5Y` (default `1M`) | PricesResponse |
 | `GET /companies/{ticker}/news` | `limit` = 1 to 20 (default 5) | NewsResponse |
@@ -16,6 +18,15 @@ Tickers are forgiving: `aapl`, `AAPL`, `$AAPL` and `brk.b` (becomes `BRK-B`) all
 ## Types (TypeScript)
 
 ```ts
+interface Company {
+  ticker: string;                     // e.g. "AAPL", "BRK-B"
+  name: string;                       // e.g. "Apple Inc."
+  exchange: "NYSE" | "NASDAQ";
+}
+interface CompanySearchResults {
+  query: string;                      // the search text as received
+  results: Company[];                 // best match first; [] when nothing matches
+}
 interface Overview {
   ticker: string;
   name: string;
@@ -52,6 +63,12 @@ Fields typed `| null` can be null, so render a dash. Point counts are about 5 (1
 
 ## Sample responses
 
+`GET /companies/search?q=apple&limit=2`
+
+```json
+{"query":"apple","results":[{"ticker":"AAPL","name":"Apple Inc.","exchange":"NASDAQ"},{"ticker":"APLE","name":"Apple Hospitality REIT, Inc.","exchange":"NYSE"}]}
+```
+
 `GET /companies/AAPL/overview`
 
 ```json
@@ -79,6 +96,7 @@ All errors are `{"detail": ...}` with a status code.
 | Status | Body | Meaning |
 | --- | --- | --- |
 | 404 | `{"detail":"No data for that ticker."}` | Unknown ticker, show "not found" |
+| 404 | `{"detail":"No company found for that ticker."}` | `GET /companies/{ticker}` for a ticker not listed on NYSE or NASDAQ |
 | 422 | `{"detail":"Not a valid ticker."}` | Malformed ticker |
 | 422 | FastAPI list-style `detail` | Bad `range` or `limit` |
 | 502 | `{"detail":"Market data is temporarily unavailable."}` | Upstream down and nothing cached, offer retry |
@@ -115,4 +133,5 @@ const [overview, prices, news] = await Promise.all([
 - The first request for a new ticker is slow because central calls the scraper. Use a client timeout of 30 s or more and fire the three requests in parallel.
 - Searching a ticker makes the backend keep it fresh for a week, so repeat visits are fast.
 - CORS is not enabled. A browser app on another origin is blocked, so either proxy `/api` through the frontend's nginx or dev server, or ask the backend to add CORS middleware.
-- There is no search or `GET /companies/{ticker}` endpoint yet.
+- Search and company lookup use a bundled list of about 5,600 NYSE and NASDAQ companies (`central_api/app/data/companies.csv`), so they never call the scraper. Refresh the list with `python scripts/build_company_list.py` from `central_api/`.
+- Search ranks an exact ticker first, then ticker prefixes, then names that start with the query, then names containing a word that starts with it. A query with no matches returns `200` with an empty `results` list.
