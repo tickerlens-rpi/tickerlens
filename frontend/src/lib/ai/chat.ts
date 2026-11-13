@@ -3,8 +3,8 @@
  * news summary.
  *
  * Provider modules are loaded on demand, so the landing page does not
- * download them. The Anthropic and OpenAI SDKs run in the browser and call
- * the provider directly with the user's own key; ChatGPT-plan requests go
+ * download them. The Anthropic and OpenAI SDKs, and the Gemini REST client,
+ * run in the browser and call the provider directly with the user's own key; ChatGPT-plan requests go
  * through the TickerLens server's relay (see `codex_provider.ts`).
  */
 
@@ -73,6 +73,8 @@ async function loadKeyProvider(
       return (await import('./anthropic_provider')).ANTHROPIC_PROVIDER;
     case 'openai':
       return (await import('./openai_provider')).OPENAI_PROVIDER;
+    case 'gemini':
+      return (await import('./gemini_provider')).GEMINI_PROVIDER;
     default: {
       const unreachable: never = provider;
       return unreachable;

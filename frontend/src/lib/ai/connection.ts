@@ -4,7 +4,8 @@
  *
  * The connection is stored only in this browser, on the user's computer.
  * API-key requests go straight from the browser to the provider
- * (api.anthropic.com or api.openai.com); TickerLens servers never see the
+ * (api.anthropic.com, api.openai.com or generativelanguage.googleapis.com);
+ * TickerLens servers never see the
  * key. ChatGPT-plan requests pass through the TickerLens server on their way
  * to chatgpt.com, because chatgpt.com does not accept them from other sites;
  * the server forwards them without storing anything (see `codex_provider.ts`).
@@ -14,10 +15,11 @@
 
 import {STORAGE_PREFIX, readJson, removeKey, writeJson} from '../local_data';
 
-export const AI_PROVIDERS = ['anthropic', 'openai', 'codex'] as const;
+export const AI_PROVIDERS = ['anthropic', 'openai', 'gemini', 'codex'] as const;
 
 /**
- * How the user connected: an Anthropic or OpenAI API key, or `codex`, a
+ * How the user connected: an Anthropic, OpenAI or Google Gemini API key, or
+ * `codex`, a
  * ChatGPT plan signed in through OpenAI's Codex sign-in.
  */
 export type AiProvider = (typeof AI_PROVIDERS)[number];
@@ -31,7 +33,7 @@ export type ApiKeyProvider = Exclude<AiProvider, 'codex'>;
  */
 export type Persistence = 'device' | 'session';
 
-/** A connection made with a pasted Anthropic or OpenAI API key. */
+/** A connection made with a pasted Anthropic, OpenAI or Gemini API key. */
 export interface ApiKeyConnection {
   provider: ApiKeyProvider;
   apiKey: string;
@@ -118,6 +120,19 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     defaultModel: 'gpt-5',
     costHint: 'usually a few cents per question',
   },
+  gemini: {
+    label: 'Google',
+    product: 'Gemini',
+    keyPrefix: 'AIza',
+    keyPlaceholder: 'AIza…',
+    keysUrl: 'https://aistudio.google.com/app/apikey',
+    billingUrl: 'https://aistudio.google.com/usage',
+    consoleHost: 'aistudio.google.com',
+    chatAccount: 'Google AI Pro or Ultra plan',
+    // An alias Google keeps pointed at its current Flash model.
+    defaultModel: 'gemini-flash-latest',
+    costHint: 'free within Google’s daily limits, or about a cent per question',
+  },
   codex: {
     label: 'OpenAI',
     product: 'ChatGPT plan',
@@ -183,6 +198,15 @@ export function modelDisplayName(id: string): string {
           .join(' ')}`
       : '';
     return `${MODEL_WORDS[brand]}-${version}${suffix}`;
+  }
+  const gemini = /^gemini-(.+)$/.exec(id);
+  if (gemini) {
+    const words = gemini[1]
+      .split('-')
+      .map(word =>
+        /^\d/.test(word) ? word : word.charAt(0).toUpperCase() + word.slice(1),
+      );
+    return `Gemini ${words.join(' ')}`;
   }
   return id;
 }
@@ -272,7 +296,9 @@ export function maskApiKey(apiKey: string): string {
   if (apiKey.length <= 12) {
     return '•'.repeat(apiKey.length);
   }
-  const prefix = apiKey.startsWith('sk-ant-') ? 'sk-ant-' : apiKey.slice(0, 3);
+  const prefix = apiKey.startsWith('sk-ant-')
+    ? 'sk-ant-'
+    : apiKey.slice(0, apiKey.startsWith('AIza') ? 4 : 3);
   return `${prefix}…${apiKey.slice(-4)}`;
 }
 

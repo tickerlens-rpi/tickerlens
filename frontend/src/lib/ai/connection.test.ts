@@ -23,6 +23,7 @@ describe('checkApiKey', () => {
   it('accepts well-formed keys for each provider', () => {
     expect(checkApiKey('anthropic', 'sk-ant-api03-xyz')).toBeUndefined();
     expect(checkApiKey('openai', 'sk-proj-xyz')).toBeUndefined();
+    expect(checkApiKey('gemini', 'AIzaSyAbc123')).toBeUndefined();
   });
 
   it('flags empty keys, stray whitespace and the wrong provider', () => {
@@ -31,6 +32,7 @@ describe('checkApiKey', () => {
     expect(checkApiKey('anthropic', 'sk-proj-xyz')).toBe('wrong-provider');
     expect(checkApiKey('openai', 'sk-ant-api03-xyz')).toBe('wrong-provider');
     expect(checkApiKey('openai', 'hello')).toBe('wrong-provider');
+    expect(checkApiKey('gemini', 'sk-proj-xyz')).toBe('wrong-provider');
   });
 });
 
@@ -38,6 +40,7 @@ describe('maskApiKey', () => {
   it('shows only the prefix and the last four characters', () => {
     expect(maskApiKey('sk-ant-api03-abcdefghijklmnop')).toBe('sk-ant-…mnop');
     expect(maskApiKey('sk-proj-1234567890abcd')).toBe('sk-…abcd');
+    expect(maskApiKey('AIzaSyAbcdefghijklmnop')).toBe('AIza…mnop');
     expect(maskApiKey('short')).toBe('•••••');
   });
 });

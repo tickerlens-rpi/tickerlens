@@ -33,8 +33,11 @@ const KEY_PROBLEMS: Record<KeyProblem, (provider: ApiKeyProvider) => string> = {
   empty: () => 'Paste your API key first.',
   whitespace: () =>
     'The key contains spaces or line breaks. Copy it again without them.',
-  'wrong-provider': provider =>
-    `That does not look like an ${PROVIDERS[provider].label} key. ${PROVIDERS[provider].label} keys start with “${PROVIDERS[provider].keyPrefix}”.`,
+  'wrong-provider': provider => {
+    const {label, keyPrefix} = PROVIDERS[provider];
+    const article = /^[AEIOU]/.test(label) ? 'an' : 'a';
+    return `That does not look like ${article} ${label} key. ${label} keys start with “${keyPrefix}”.`;
+  },
 };
 
 const PERSISTENCE_OPTIONS: ReadonlyArray<{
@@ -94,6 +97,24 @@ const KEY_STEPS: Record<ApiKeyProvider, ReactNode[]> = {
     </>,
     <>Copy the key and paste it below. It is only shown once.</>,
   ],
+  gemini: [
+    <>
+      Sign in at{' '}
+      <a
+        href="https://aistudio.google.com/app/apikey"
+        target="_blank"
+        rel="noreferrer"
+      >
+        aistudio.google.com
+      </a>{' '}
+      with your Google account. This is separate from the Gemini app.
+    </>,
+    <>
+      Choose <strong>Create API key</strong>. Google lets you use it free up to
+      a daily limit; to go beyond that, set up billing in Google AI Studio.
+    </>,
+    <>Copy the key, which starts with “AIza”, and paste it below.</>,
+  ],
 };
 
 interface AiConnectionFormProps {
@@ -103,7 +124,7 @@ interface AiConnectionFormProps {
 }
 
 /**
- * Lets the user connect their own Claude or ChatGPT API key, or sign in with
+ * Lets the user connect their own Claude, ChatGPT or Gemini API key, or sign in with
  * a ChatGPT plan. A key is checked by calling the provider directly from the
  * browser (listing models, which costs nothing); either way the connection
  * is saved in this browser only.

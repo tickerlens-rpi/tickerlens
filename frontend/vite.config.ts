@@ -14,6 +14,7 @@ const CONNECT_SOURCES = [
   'https://api.anthropic.com',
   'https://api.openai.com',
   'https://auth.openai.com',
+  'https://generativelanguage.googleapis.com',
 ];
 
 /**

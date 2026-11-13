@@ -31,7 +31,7 @@ export function SettingsPage() {
             </h2>
             <p>
               TickerLens summarizes news and answers questions using your own
-              Claude or ChatGPT. Connect it once with an{' '}
+              Claude, ChatGPT or Gemini. Connect it once with an{' '}
               <strong>API key</strong>, a password-like code that lets this site
               ask the AI on your behalf, or sign in with your ChatGPT plan.
             </p>
@@ -56,10 +56,10 @@ export function SettingsPage() {
               <p>
                 Your key or sign-in stays in this browser on your computer. With
                 an API key, questions go from your computer straight to
-                Anthropic or OpenAI, with no TickerLens server in between. With
-                a ChatGPT plan, chatgpt.com does not accept questions sent from
-                other websites, so they pass through the TickerLens server,
-                which forwards them without keeping anything.
+                Anthropic, OpenAI or Google, with no TickerLens server in
+                between. With a ChatGPT plan, chatgpt.com does not accept
+                questions sent from other websites, so they pass through the
+                TickerLens server, which forwards them without keeping anything.
               </p>
               <p>
                 Anyone who uses this browser profile could find the key, so on a
