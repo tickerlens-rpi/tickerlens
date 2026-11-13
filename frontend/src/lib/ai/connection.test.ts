@@ -24,6 +24,7 @@ describe('checkApiKey', () => {
     expect(checkApiKey('anthropic', 'sk-ant-api03-xyz')).toBeUndefined();
     expect(checkApiKey('openai', 'sk-proj-xyz')).toBeUndefined();
     expect(checkApiKey('gemini', 'AIzaSyAbc123')).toBeUndefined();
+    expect(checkApiKey('gemini', 'AQ.Ab8RN6Kxyz')).toBeUndefined();
   });
 
   it('flags empty keys, stray whitespace and the wrong provider', () => {
