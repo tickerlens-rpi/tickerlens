@@ -279,6 +279,11 @@ export function checkApiKey(
   if (/\s/.test(apiKey)) {
     return 'whitespace';
   }
+  if (provider === 'gemini') {
+    // Google issues keys in more than one format (older ones start with
+    // "AIza"), so only reject keys that clearly belong to another provider.
+    return apiKey.startsWith('sk-') ? 'wrong-provider' : undefined;
+  }
   if (
     provider === 'openai' &&
     apiKey.startsWith(PROVIDERS.anthropic.keyPrefix)

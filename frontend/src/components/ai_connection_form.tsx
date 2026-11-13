@@ -34,6 +34,9 @@ const KEY_PROBLEMS: Record<KeyProblem, (provider: ApiKeyProvider) => string> = {
   whitespace: () =>
     'The key contains spaces or line breaks. Copy it again without them.',
   'wrong-provider': provider => {
+    if (provider === 'gemini') {
+      return 'That looks like an OpenAI or Anthropic key, not a Google key.';
+    }
     const {label, keyPrefix} = PROVIDERS[provider];
     const article = /^[AEIOU]/.test(label) ? 'an' : 'a';
     return `That does not look like ${article} ${label} key. ${label} keys start with “${keyPrefix}”.`;
@@ -113,7 +116,7 @@ const KEY_STEPS: Record<ApiKeyProvider, ReactNode[]> = {
       Choose <strong>Create API key</strong>. Google lets you use it free up to
       a daily limit; to go beyond that, set up billing in Google AI Studio.
     </>,
-    <>Copy the key, which starts with “AIza”, and paste it below.</>,
+    <>Copy the key and paste it below.</>,
   ],
 };
 
