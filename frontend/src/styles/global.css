@@ -33,6 +33,9 @@
   --down-ink: #9c3824;
   /* The price line: the lens hue with enough chroma to read as colour. */
   --series-price: #00806a;
+  /* The price chart's colour for a flat range; it blends toward up or down
+     as the price moves (see src/lib/chart_trend.ts). */
+  --trend-flat: #7a7366;
 
   /* Type */
   --font-display:
