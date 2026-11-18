@@ -34,7 +34,9 @@ Requires Docker with Compose. Copy `.env.example` to `.env`, put your free
 docker compose up -d --build
 ```
 
-Open https://localhost (set `DOMAIN` in `.env` to serve a public domain).
+Set `DOMAIN`, `DUCKDNS_DOMAIN` and `DUCKDNS_TOKEN` in `.env` first (see
+`.env.example`). Open your domain over HTTPS, adding the public port your router
+forwards to port 443 on this machine, for example `https://example.dev:44444`.
 The frontend's nginx forwards `/api/` to the central API, so the browser only
 ever talks to one origin.
 

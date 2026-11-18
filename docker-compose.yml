@@ -5,12 +5,14 @@
 # the deployment tests.
 services:
   proxy:
-    image: caddy:2-alpine
+    build: ./proxy
+    image: proxy-image
     container_name: proxy-container
     environment:
-      DOMAIN: ${DOMAIN:-localhost}
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+      DUCKDNS_DOMAIN: ${DUCKDNS_DOMAIN:?Set DUCKDNS_DOMAIN in .env}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN in .env}
     ports:
-      - "80:80"
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

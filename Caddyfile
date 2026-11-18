@@ -1,13 +1,21 @@
-# HTTPS reverse proxy. Caddy gets and renews the certificate for DOMAIN (set
-# in .env) and redirects http to https.
+# HTTPS reverse proxy. The ISP blocks public ports 80 and 443, so Caddy proves
+# it owns DOMAIN with a DNS record: DOMAIN's _acme-challenge CNAME points at
+# DUCKDNS_DOMAIN, where Caddy writes the challenge. Settings come from .env.
 {
 	servers {
-		# Only 80/tcp and 443/tcp are published, so do not offer HTTP/3.
+		# Only 443/tcp is published, so do not offer HTTP/3.
 		protocols h1 h2
 	}
 }
 
-{$DOMAIN:localhost} {
+{$DOMAIN} {
+	tls {
+		dns duckdns {$DUCKDNS_TOKEN} {
+			override_domain {$DUCKDNS_DOMAIN}
+		}
+		resolvers 1.1.1.1 8.8.8.8
+	}
+
 	reverse_proxy frontend:80 {
 		# Stream ChatGPT answers to the browser as they arrive.
 		flush_interval -1
