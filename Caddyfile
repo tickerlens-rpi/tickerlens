@@ -1,0 +1,15 @@
+# HTTPS reverse proxy. Caddy gets and renews the certificate for DOMAIN (set
+# in .env) and redirects http to https.
+{
+	servers {
+		# Only 80/tcp and 443/tcp are published, so do not offer HTTP/3.
+		protocols h1 h2
+	}
+}
+
+{$DOMAIN:localhost} {
+	reverse_proxy frontend:80 {
+		# Stream ChatGPT answers to the browser as they arrive.
+		flush_interval -1
+	}
+}

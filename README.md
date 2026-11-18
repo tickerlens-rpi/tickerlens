@@ -34,7 +34,7 @@ Requires Docker with Compose. Copy `.env.example` to `.env`, put your free
 docker compose up -d --build
 ```
 
-Open http://localhost (set `FRONTEND_PORT` in `.env` to use another port).
+Open https://localhost (set `DOMAIN` in `.env` to serve a public domain).
 The frontend's nginx forwards `/api/` to the central API, so the browser only
 ever talks to one origin.
 
