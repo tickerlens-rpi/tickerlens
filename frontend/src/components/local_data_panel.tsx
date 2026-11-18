@@ -60,8 +60,8 @@ export function LocalDataPanel({onCleared}: LocalDataPanelProps) {
       </ul>
       <p>
         With an API key, your browser sends questions, with your key, straight
-        to Anthropic or OpenAI; TickerLens has no server in between. With a
-        ChatGPT plan, questions pass through the TickerLens server to
+        to Anthropic, OpenAI or Google; TickerLens has no server in between.
+        With a ChatGPT plan, questions pass through the TickerLens server to
         chatgpt.com, which forwards them without keeping anything. The site is
         built so it cannot send your data anywhere else.
       </p>

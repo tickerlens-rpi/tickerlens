@@ -28,8 +28,9 @@ no `404.html`; the Docker image's nginx is configured for it).
 
 TickerLens runs no AI on its servers. The news summary on the company page
 and the chat on `/research/:ticker` use the reader's own AI, connected in
-Settings in one of three ways: an **Anthropic (Claude)** API key, an
-**OpenAI (ChatGPT)** API key, or a **ChatGPT plan** sign-in.
+Settings in one of four ways: an **Anthropic (Claude)** API key, an
+**OpenAI (ChatGPT)** API key, a **Google (Gemini)** API key, or a
+**ChatGPT plan** sign-in.
 
 The **news summary** (`src/lib/ai/news_summary.ts`) runs only when the reader
 asks. The model gets up to eight of the latest articles, numbered, and must
@@ -46,9 +47,12 @@ For API keys:
 - Requests go straight from the browser to `api.anthropic.com` or
   `api.openai.com` through the official SDKs (`@anthropic-ai/sdk`, `openai`)
   with `dangerouslyAllowBrowser`, which is acceptable here because the key
-  belongs to the person using the browser, not to us.
+  belongs to the person using the browser, not to us. Gemini requests go to
+  `generativelanguage.googleapis.com` with plain `fetch`
+  (`src/lib/ai/gemini_provider.ts`); the key is sent in the
+  `x-goog-api-key` header, never in the URL.
 - Production builds carry a Content-Security-Policy (`vite.config.ts`) whose
-  `connect-src` allows only the site itself and those two APIs, so a bug or a
+  `connect-src` allows only the site itself and those APIs, so a bug or a
   compromised dependency cannot quietly send the key elsewhere.
 - The SDKs are loaded on demand (`src/lib/ai/chat.ts`), so the landing page
   does not download them.
@@ -159,8 +163,8 @@ src/
   content/              Copy: landing content, key-figure explanations
   lib/                  Formatting, dates, chart scales, hooks, local
                         storage, watchlist, Markdown subset, prompts
-  lib/ai/               AI connection storage, the Claude, OpenAI and
-                        ChatGPT-plan providers, ChatGPT sign-in, and the
+  lib/ai/               AI connection storage, the Claude, OpenAI,
+                        Gemini and ChatGPT-plan providers, ChatGPT sign-in, and the
                         news summary
   styles/               global.css (tokens), landing.css, research.css, app.css
   test/                 Vitest setup and the renderWithProviders helper
