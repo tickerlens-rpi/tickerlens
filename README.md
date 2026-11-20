@@ -16,6 +16,7 @@ plain-language research, and shows the source behind every claim.
 | Scraper     | `scrapper_api/` | Fetches fresh data: overview and news from Finnhub, prices from Yahoo        |
 | Scheduler   | `scheduler/`    | Keeps recently searched tickers fresh in the database                        |
 | Database    | `database/`     | Postgres cache shared by the central API and the scheduler                   |
+| HTTPS proxy | `proxy/`        | Caddy: the only public entry point; ends HTTPS and forwards to the frontend  |
 
 AI features (the news summary and the chat) run in the browser with each
 user's own AI account, so the servers hold no AI keys. See
@@ -34,9 +35,15 @@ Requires Docker with Compose. Copy `.env.example` to `.env`, put your free
 docker compose up -d --build
 ```
 
-Open http://localhost (set `FRONTEND_PORT` in `.env` to use another port).
-The frontend's nginx forwards `/api/` to the central API, so the browser only
-ever talks to one origin.
+Set `DOMAIN`, `DUCKDNS_DOMAIN` and `DUCKDNS_TOKEN` in `.env` first (see
+`.env.example`). Open your domain over plain HTTPS with no port, for example
+`https://example.dev`. Visitors connect to Cloudflare on port 443; a Cloudflare
+Origin Rule sends the request on to the public port your router opens, and the
+router forwards it to port 443 on this machine. Setup steps:
+[proxy/README.md](proxy/README.md).
+
+Inside, the HTTPS proxy (Caddy) forwards to the frontend's nginx, which forwards
+`/api/` to the central API, so the browser only ever talks to one origin.
 
 ## Run the frontend on its own
 

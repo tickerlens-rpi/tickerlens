@@ -130,6 +130,7 @@ const [overview, prices, news] = await Promise.all([
 
 - Every response has an `X-Cache` header: `HIT` (from the database), `MISS` (just fetched) or `STALE` (old data served because the refresh failed).
 - `last_updated` is when the data was fetched, not when the market moved. Data is refreshed after 15 min (overview, prices) or 1 hour (news).
+- News `publisher` is the outlet that wrote the story and `url` links straight to it. If the backend could not find the outlet, the article says `"Yahoo"` (the aggregator it came through) and links through Finnhub instead; it still opens the story.
 - The first request for a new ticker is slow because central calls the scraper. Use a client timeout of 30 s or more and fire the three requests in parallel.
 - Searching a ticker makes the backend keep it fresh for a week, so repeat visits are fast.
 - CORS is not enabled. A browser app on another origin is blocked, so either proxy `/api` through the frontend's nginx or dev server, or ask the backend to add CORS middleware.
