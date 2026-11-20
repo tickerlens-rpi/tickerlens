@@ -3,7 +3,10 @@
 Free tier: 60 calls/minute. The API key is sent in a header (not the URL), so it
 can never show up in an error message or a log line.
 """
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+import time
+from urllib.parse import urlsplit
 import httpx
 from app.abstract_classes import NewsProvider, OverviewProvider
 from app.errors import ProviderError, TickerNotFound
@@ -11,6 +14,24 @@ from app.models import Article
 
 BASE_URL = "https://finnhub.io/api/v1"
 NEWS_WINDOW_DAYS = 30
+AGGREGATOR_SOURCES = {"yahoo"}  # Finnhub's feed name, not the outlet that wrote the story
+REDIRECT_HOST = "finnhub.io"
+REDIRECT_ATTEMPTS = 3
+
+# Display names for common outlets; anything else is named from its domain.
+PUBLISHER_NAMES = {
+    "finance.yahoo.com": "Yahoo Finance", "yahoo.com": "Yahoo Finance",
+    "247wallst.com": "24/7 Wall St.", "apnews.com": "AP", "barrons.com": "Barron's",
+    "benzinga.com": "Benzinga", "bloomberg.com": "Bloomberg", "businessinsider.com": "Business Insider",
+    "cnbc.com": "CNBC", "cnn.com": "CNN", "forbes.com": "Forbes", "fool.com": "The Motley Fool",
+    "ft.com": "Financial Times", "gurufocus.com": "GuruFocus", "insidermonkey.com": "Insider Monkey",
+    "investopedia.com": "Investopedia", "investors.com": "Investor's Business Daily",
+    "kiplinger.com": "Kiplinger", "marketwatch.com": "MarketWatch", "nytimes.com": "The New York Times",
+    "reuters.com": "Reuters", "seekingalpha.com": "Seeking Alpha", "simplywall.st": "Simply Wall St",
+    "stocktwits.com": "Stocktwits", "techcrunch.com": "TechCrunch", "theverge.com": "The Verge",
+    "thestreet.com": "TheStreet", "trefis.com": "Trefis", "wsj.com": "The Wall Street Journal",
+    "zacks.com": "Zacks",
+}
 
 
 def _num(value) -> float | None:
@@ -44,6 +65,21 @@ def _exchange_name(raw: str | None) -> str | None:
     if upper.startswith("NYSE") or upper.startswith("NEW YORK STOCK EXCHANGE"):
         return "NYSE"
     return raw
+
+
+def _publisher_from_url(url: str) -> str | None:
+    """'https://www.benzinga.com/x' -> 'Benzinga'; unknown 'https://news.example.com/x' -> 'Example'."""
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    if not host:
+        return None
+    parts = host.split(".")
+    for i in range(len(parts) - 1):  # 'finance.yahoo.com', then 'yahoo.com'
+        name = PUBLISHER_NAMES.get(".".join(parts[i:]))
+        if name:
+            return name
+    if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in {"co", "com", "org", "net", "ac", "gov"}:
+        return parts[-3].capitalize()  # 'example.co.uk'
+    return parts[-2].capitalize() if len(parts) >= 2 else host
 
 
 class FinnhubProvider(OverviewProvider, NewsProvider):
@@ -99,7 +135,24 @@ class FinnhubProvider(OverviewProvider, NewsProvider):
                 url=item["url"],
                 summary=(item.get("summary") or "")[:300] or None,
             ))
+        self._resolve_aggregated_publishers(valid[:limit * 2])
         return self._spread_across_publishers(valid, limit)
+
+    def _resolve_aggregated_publishers(self, articles: list[Article]) -> None:
+        """Finnhub labels most stories 'Yahoo' (its feed), whoever wrote them. Its news link is a
+        redirect to the original article, so the redirect target names the real publisher and
+        becomes the article's link. Only the Finnhub hop is requested, never the outlet's page."""
+        pending = [a for a in articles
+                   if (a.publisher or "").lower() in AGGREGATOR_SOURCES
+                   and urlsplit(a.url).hostname == REDIRECT_HOST]
+        if not pending:
+            return
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            targets = list(pool.map(self._redirect_target, (a.url for a in pending)))
+        for article, target in zip(pending, targets):
+            publisher = _publisher_from_url(target) if target else None
+            if publisher:
+                article.publisher, article.url = publisher, target
 
     @staticmethod
     def _spread_across_publishers(articles: list[Article], limit: int) -> list[Article]:
@@ -139,3 +192,17 @@ class FinnhubProvider(OverviewProvider, NewsProvider):
                              headers={"X-Finnhub-Token": self._key}, timeout=15)
         response.raise_for_status()
         return response.json()
+
+    def _redirect_target(self, url: str) -> str | None:  # overridden in tests
+        """Where a Finnhub news link redirects, or None. Failures just keep Finnhub's label.
+        Finnhub answers bursts with 429, so those are retried briefly."""
+        for attempt in range(REDIRECT_ATTEMPTS):
+            try:
+                response = httpx.get(url, follow_redirects=False, timeout=5)
+            except httpx.HTTPError:
+                return None
+            if response.status_code != 429:
+                break
+            time.sleep(0.4 * (attempt + 1))
+        location = response.headers.get("location") if response.is_redirect else None
+        return location if location and location.startswith(("https://", "http://")) else None

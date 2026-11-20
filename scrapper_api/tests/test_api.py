@@ -8,7 +8,7 @@ from app import main as main_module
 from app.abstract_classes import MarketDataProvider, NewsProvider
 from app.combined import CombinedProvider
 from app.errors import ProviderError, TickerNotFound
-from app.finnhub import FinnhubProvider, _exchange_name
+from app.finnhub import FinnhubProvider, _exchange_name, _publisher_from_url
 from app.main import app, get_market_provider, get_news_provider, normalize_ticker
 from app.models import Article, PricePoint
 from app.yahoo import YahooPriceProvider, _weekly
@@ -146,9 +146,10 @@ METRICS = {"metric": {"peBasicExclExtraTTM": 34.8, "epsBasicExclExtraItemsTTM": 
 QUOTE = {"c": 231.45, "dp": 1.2043}
 
 
-def finnhub_with(monkeypatch, responder):
+def finnhub_with(monkeypatch, responder, redirects=None):
     provider = FinnhubProvider("secret-key")
     monkeypatch.setattr(provider, "_http_get", responder)
+    monkeypatch.setattr(provider, "_redirect_target", lambda url: (redirects or {}).get(url))
     return provider
 
 
@@ -235,6 +236,38 @@ def test_finnhub_news_spread_across_publishers(monkeypatch):
 def test_finnhub_single_publisher_still_fills_the_limit(monkeypatch):
     yahoo = [{"headline": f"Y{i}", "url": f"https://x/y{i}", "source": "Yahoo", "datetime": 1_790_000_000 - i} for i in range(8)]
     assert len(finnhub_with(monkeypatch, lambda p, q: yahoo).get_news("AAPL", 5)) == 5
+
+
+def test_finnhub_yahoo_label_replaced_by_the_real_publisher(monkeypatch):
+    def item(n, source="Yahoo"):
+        return {"headline": f"H{n}", "url": f"https://finnhub.io/api/news?id={n}", "source": source,
+                "datetime": 1_790_000_000 - n}
+
+    redirects = {
+        "https://finnhub.io/api/news?id=0": "https://www.benzinga.com/markets/story?utm_source=yahooFinance",
+        "https://finnhub.io/api/news?id=1": "https://finance.yahoo.com/m/abc/story.html",
+        "https://finnhub.io/api/news?id=2": "https://news.example.co.uk/story",
+        # id=3: redirect failed, keeps Finnhub's label and link
+        "https://finnhub.io/api/news?id=4": "https://cnbc.com/should-not-be-used",  # labelled CNBC already
+    }
+    data = [item(0), item(1), item(2), item(3), item(4, source="CNBC")]
+    arts = finnhub_with(monkeypatch, lambda p, q: data, redirects).get_news("AAPL", 5)
+    assert [(a.publisher, a.url) for a in arts] == [
+        ("Benzinga", "https://www.benzinga.com/markets/story?utm_source=yahooFinance"),
+        ("Yahoo Finance", "https://finance.yahoo.com/m/abc/story.html"),
+        ("Example", "https://news.example.co.uk/story"),
+        ("Yahoo", "https://finnhub.io/api/news?id=3"),
+        ("CNBC", "https://finnhub.io/api/news?id=4"),
+    ]
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://www.reuters.com/x", "Reuters"), ("https://finance.yahoo.com/x", "Yahoo Finance"),
+    ("https://uk.finance.yahoo.com/x", "Yahoo Finance"), ("https://247wallst.com/x", "24/7 Wall St."),
+    ("https://www.somenewsite.com/x", "Somenewsite"), ("not a url", None),
+])
+def test_publisher_from_url(url, expected):
+    assert _publisher_from_url(url) == expected
 
 
 def test_finnhub_empty_and_wrong_news_shape(monkeypatch):
