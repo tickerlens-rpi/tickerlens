@@ -1,5 +1,6 @@
 """Offline tests: no network, no API keys. Run from scrapper_api:  python -m pytest tests/test_api.py -v"""
 from datetime import date, datetime, timedelta, timezone
+import threading
 import time
 import httpx
 import pandas as pd
@@ -12,7 +13,7 @@ from app.errors import ProviderError, TickerNotFound
 from app.finnhub import FinnhubProvider, _exchange_name, _publisher_from_url
 from app.main import app, get_market_provider, get_news_provider, normalize_ticker
 from app.models import Article, PricePoint
-from app.news_links import LinkResolver
+from app.news_links import MAX_HOPS, LinkResolver
 from app.yahoo import YahooPriceProvider, _weekly
 
 
@@ -314,8 +315,9 @@ def test_finnhub_yahoo_and_yahoo_finance_count_as_one_publisher(monkeypatch):
 
 # ---- LinkResolver against mocked HTTP (no network) ----
 
-def link_resolver(routes):
-    """routes: url -> httpx.Response, an exception, or a list of them returned in turn."""
+def link_resolver(routes, **options):
+    """routes: url -> httpx.Response, an exception, a function returning one, or a list of
+    them used in turn."""
     calls = []
 
     def handler(request):
@@ -323,12 +325,14 @@ def link_resolver(routes):
         calls.append(url)
         route = routes[url]
         result = route.pop(0) if isinstance(route, list) else route
+        if callable(result):
+            result = result()
         if isinstance(result, Exception):
             raise result
         return result
 
     client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
-    return LinkResolver(client=client), calls
+    return LinkResolver(client=client, **options), calls
 
 
 def redirect(location):
@@ -355,14 +359,25 @@ def test_link_resolver_absolute_relative_and_protocol_relative_redirects():
 
 
 def test_link_resolver_rejects_non_article_targets():
-    resolver, _ = link_resolver({
+    loop = "https://finnhub.io/api/news?id=loop"
+    resolver, calls = link_resolver({
         "https://finnhub.io/api/news?id=page": httpx.Response(200),
         "https://finnhub.io/api/news?id=js": redirect("javascript:alert(1)"),
-        "https://finnhub.io/api/news?id=loop": redirect("/api/news?id=loop"),
+        loop: redirect("/api/news?id=loop"),
     })
-    urls = ["https://finnhub.io/api/news?id=page", "https://finnhub.io/api/news?id=js",
-            "https://finnhub.io/api/news?id=loop"]
+    urls = ["https://finnhub.io/api/news?id=page", "https://finnhub.io/api/news?id=js", loop]
     assert resolver.resolve(urls, soon()) == {}
+    assert calls.count(loop) == 1 + MAX_HOPS  # the link, then MAX_HOPS redirects, then it stops
+
+
+def test_link_resolver_follows_up_to_max_hops_on_finnhub():
+    link = "https://finnhub.io/api/news?id=far"
+    hops = [f"https://finnhub.io/hop{n}" for n in range(1, MAX_HOPS + 1)]
+    routes = {link: redirect(hops[0])}
+    for here, there in zip(hops, hops[1:] + ["https://www.reuters.com/a"]):
+        routes[here] = redirect(there)
+    resolver, _ = link_resolver(routes)
+    assert resolver.resolve([link], soon()) == {link: "https://www.reuters.com/a"}
 
 
 def test_link_resolver_retries_429_then_resolves():
@@ -383,7 +398,50 @@ def test_link_resolver_caches_answers_but_not_network_errors():
     assert calls.count(ok) == 1 and calls.count(down) == 2
 
 
-def test_link_resolver_stops_at_the_deadline():
+@pytest.mark.parametrize("status", [500, 502, 503, 408])
+def test_link_resolver_does_not_cache_server_errors(status):
+    url = "https://finnhub.io/api/news?id=flaky"
+    resolver, calls = link_resolver({url: [httpx.Response(status), redirect("https://www.reuters.com/a")]})
+    assert resolver.resolve([url], soon()) == {}
+    assert resolver.resolve([url], soon()) == {url: "https://www.reuters.com/a"}
+    assert len(calls) == 2
+
+
+def test_link_resolver_late_failure_keeps_a_resolved_link():
+    url = "https://finnhub.io/api/news?id=raced"
+    resolver, _ = link_resolver({})
+    resolver._remember(url, "https://www.reuters.com/a")
+    resolver._remember(url, None)  # a slower lookup of the same link that got no answer
+    assert resolver.resolve([url], soon()) == {url: "https://www.reuters.com/a"}
+
+
+def test_link_resolver_skips_lookups_when_full():
+    release = threading.Event()
+    slow = lambda: (release.wait(5), redirect("https://www.reuters.com/a"))[1]
+    urls = [f"https://finnhub.io/api/news?id={n}" for n in range(4)]
+    resolver, calls = link_resolver({u: slow for u in urls}, workers=1, max_pending=2)
+    try:
+        assert resolver.resolve(urls, time.monotonic() + 0.2) == {}
+    finally:
+        release.set()
+    time.sleep(0.2)  # let the running lookup finish
+    assert set(calls) <= set(urls[:2])  # the two beyond max_pending were never queued
+    assert resolver._pending == 0  # finished and cancelled lookups both free their slot
+
+
+def test_link_resolver_returns_at_the_deadline_while_a_lookup_hangs():
+    release = threading.Event()
+    url = "https://finnhub.io/api/news?id=hang"
+    resolver, calls = link_resolver({url: lambda: (release.wait(5), redirect("https://www.reuters.com/a"))[1]})
+    start = time.monotonic()
+    try:
+        assert resolver.resolve([url], start + 0.3) == {}
+        assert time.monotonic() - start < 1.0 and calls == [url]  # it started, and was not waited for
+    finally:
+        release.set()
+
+
+def test_link_resolver_makes_no_request_after_the_deadline():
     resolver, calls = link_resolver({})
     assert resolver.resolve(["https://finnhub.io/api/news?id=late"], time.monotonic() - 1) == {}
     assert calls == []

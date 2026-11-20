@@ -15,7 +15,7 @@ A small FastAPI service that fetches stock data from outside providers. It has n
 | `GET /health` | Returns `{"status": "ok"}` |
 | `GET /companies/{ticker}/overview` | |
 | `GET /companies/{ticker}/prices?range=1W\|1M\|1Y\|5Y` | Default `1M`. Points: 5 daily, 21 daily, 52 weekly, 260 weekly. |
-| `GET /companies/{ticker}/news?limit=1..20` | Default `5`. Newest first, spread across at least two publishers when available. |
+| `GET /companies/{ticker}/news?limit=1..20` | Default `5`. Newest first, spread across at least two publishers when available. Publisher and link are the original outlet's (see below). |
 
 Tickers are normalized, so `$aapl` becomes `AAPL` and `brk.b` becomes `BRK-B`.
 
@@ -48,11 +48,20 @@ docker build -t scrapper ./scrapper_api
 docker run --rm -p 8001:8001 -e FINNHUB_API_KEY=your_key_here scrapper
 ```
 
+## News publishers
+
+Finnhub's `source` field is usually `Yahoo`, the feed it read, not the outlet that wrote the story. Its article link is a redirect to the original, so `app/news_links.py` requests that redirect (status and headers only, never the outlet's page) and `app/finnhub.py` names the publisher from the target's domain (`benzinga.com` → Benzinga; a table in `finnhub.py` covers common outlets) and uses the target as the link.
+
+- Lookups share one pool of 4 workers across all requests, with at most 32 running or queued; resolved links are cached in memory.
+- One news request spends at most 8 seconds on lookups (`RESOLVE_SECONDS`), so it stays under the central API's 30-second timeout.
+- An article that cannot be resolved in time (Finnhub busy, rate-limited or slow) keeps the `Yahoo` label and Finnhub link. Network errors and 5xx are not cached, so the next request tries again.
+- "Yahoo" and "Yahoo Finance" count as one publisher when spreading articles across publishers.
+
 ## Run locally
 
 ```
 cd scrapper_api
-pip install -r requirements-dev.txt
+pip install -r requirements.txt pytest ruff
 $env:FINNHUB_API_KEY="your_key_here"     # PowerShell
 uvicorn app.main:app --port 8001
 ```
@@ -73,7 +82,7 @@ python -m pytest tests/test_deployment.py -v -s       # real calls against the r
 - Finnhub free tier: 60 calls per minute.
 - Yahoo has no published limit. It can rate-limit or block cloud IPs, and `yfinance` is unofficial. This service downloads 5 years once per ticker and serves all four ranges from it for 5 minutes. If Yahoo fails, it serves the last copy it has.
 - `last_updated` is the time of the response, not the time of the data.
-- No caching beyond the Yahoo copy above. Cache in the layer above.
+- No caching beyond the Yahoo copy above and the resolved news links. Cache in the layer above.
 
 ## Swapping a provider
 

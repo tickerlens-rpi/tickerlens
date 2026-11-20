@@ -1,12 +1,14 @@
 """Find the original article behind a Finnhub news link.
 
 Finnhub labels most company news 'Yahoo' (the feed it read), whoever wrote it. Its news link
-redirects to the original article, so the redirect target names the real publisher. Only that
-one Finnhub hop is requested; the outlet's page is never loaded.
+redirects to the original article, so the redirect target names the real publisher. Only
+Finnhub's redirect is requested, and only its status and headers are read: the body is never
+downloaded and the outlet's page is never loaded.
 
-One resolver serves every request: its worker pool caps how many lookups run at once across
-the whole server, results are cached, and each call stops waiting at a deadline so a slow
-Finnhub cannot make a news request time out.
+One resolver serves every request. Its worker pool caps how many lookups run at once across the
+whole server, at most MAX_PENDING lookups may be running or queued (beyond that a link is simply
+not looked up), answers are cached, and each call stops waiting at a deadline, so a slow or busy
+Finnhub costs a news request at most its deadline and the article keeps Finnhub's label.
 """
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -16,9 +18,10 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 
 WORKERS = 4
-REQUEST_TIMEOUT = 5.0
-ATTEMPTS = 3  # Finnhub answers bursts with 429; retry those briefly
-MAX_HOPS = 3  # redirects followed on Finnhub's own host before giving up
+MAX_PENDING = 32       # lookups running or queued, across all requests
+REQUEST_TIMEOUT = 5.0  # per network phase (connect, each read), also clipped to the deadline
+ATTEMPTS = 3           # Finnhub answers bursts with 429; retry those briefly
+MAX_HOPS = 3           # redirects followed on the link's own host before giving up
 CACHE_SIZE = 4000
 
 
@@ -32,57 +35,80 @@ def host_of(url: str) -> str | None:
 
 
 class LinkResolver:
-    def __init__(self, client: httpx.Client | None = None, workers: int = WORKERS):
+    def __init__(self, client: httpx.Client | None = None, workers: int = WORKERS,
+                 max_pending: int = MAX_PENDING):
         self._client = client or httpx.Client(follow_redirects=False, timeout=REQUEST_TIMEOUT)
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="news-link")
+        self._max_pending = max_pending
+        self._pending = 0
         self._cache: OrderedDict[str, str | None] = OrderedDict()
         self._lock = threading.Lock()
 
     def resolve(self, urls: list[str], deadline: float) -> dict[str, str]:
         """Original-article URL for each link resolved before `deadline` (time.monotonic()).
-        Links that fail, or are still waiting at the deadline, are left out."""
-        found, todo = {}, []
+        Links that fail, are still waiting at the deadline, or find the resolver full are left out."""
+        found, futures, full = {}, {}, False
         for url in dict.fromkeys(urls):
             hit, target = self._cached(url)
-            if not hit:
-                todo.append(url)
-            elif target:
-                found[url] = target
-        if not todo:
+            if hit:
+                if target:
+                    found[url] = target
+                continue
+            future = None if full else self._submit(url, deadline)
+            if future is None:
+                full = True  # resolver is full: uncached links keep Finnhub's label
+                continue
+            futures[future] = url
+        if not futures:
             return found
-        futures = {self._pool.submit(self._lookup, url, deadline): url for url in todo}
         done, late = wait(futures, timeout=max(0.0, deadline - time.monotonic()))
         for future in late:
-            future.cancel()  # not started yet: drop it; running ones finish and fill the cache
+            future.cancel()  # not started yet: drop it; running ones stop at the deadline
         for future in done:
             if not future.cancelled() and future.exception() is None and future.result():
                 found[futures[future]] = future.result()
         return found
 
+    def _submit(self, url: str, deadline: float):
+        with self._lock:
+            if self._pending >= self._max_pending:
+                return None
+            self._pending += 1
+        future = self._pool.submit(self._lookup, url, deadline)
+        future.add_done_callback(self._release)
+        return future
+
+    def _release(self, _future) -> None:
+        with self._lock:
+            self._pending -= 1
+
     def _lookup(self, url: str, deadline: float) -> str | None:
-        """Follow redirects while they stay on the link's own host (a relative Location does),
-        and return the first one that leaves it. Transient failures are not cached, so a later
-        request tries again; a definite answer is."""
+        """Follow up to MAX_HOPS redirects that stay on the link's own host (a relative Location
+        does), and return the first target that leaves it. Only definite answers are cached:
+        network errors, 5xx, 408 and repeated 429 are left for a later request to retry."""
         current, hops, refused = url, 0, 0
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return None
             try:
-                response = self._client.get(current, timeout=min(REQUEST_TIMEOUT, remaining))
+                # stream() returns once the headers arrive; the body is never read.
+                with self._client.stream("GET", current, timeout=min(REQUEST_TIMEOUT, remaining)) as response:
+                    status, target = response.status_code, self._next_url(current, response)
             except httpx.HTTPError:
                 return None
-            if response.status_code == 429:
+            if status == 429:
                 refused += 1
                 if refused >= ATTEMPTS:
                     return None
                 time.sleep(min(0.4 * refused, max(0.0, deadline - time.monotonic())))
                 continue
-            target = self._next_url(current, response)
-            if target and host_of(target) == host_of(url) and hops + 1 < MAX_HOPS:
-                current, hops = target, hops + 1
-                continue
+            if status >= 500 or status == 408:
+                return None
             if target and host_of(target) == host_of(url):
+                if hops < MAX_HOPS:
+                    current, hops = target, hops + 1
+                    continue
                 target = None  # never left the link's host
             self._remember(url, target)
             return target
@@ -109,6 +135,8 @@ class LinkResolver:
 
     def _remember(self, url: str, target: str | None) -> None:
         with self._lock:
+            if target is None and self._cache.get(url):
+                return  # a late failure never replaces a link another request resolved
             self._cache[url] = target
             self._cache.move_to_end(url)
             while len(self._cache) > CACHE_SIZE:

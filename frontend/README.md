@@ -205,5 +205,7 @@ That keeps a future container image self-contained.
 `VITE_CODEX_RELAY_URL=/ai-proxy/codex`, then serves `dist/` with nginx.
 `nginx.conf` sends unknown paths to `index.html` for React Router, forwards
 `/api/` to the central API, and relays `POST /ai-proxy/codex/responses` to
-chatgpt.com. Run it with the rest of the stack from the repository root:
-`docker compose up -d --build`.
+chatgpt.com. It has no published port: the HTTPS proxy (`proxy/`) forwards
+to it, and nginx takes each visitor's address from the proxy's `X-Real-IP`
+header for the relay's per-client rate limit. Run it with the rest of the stack
+from the repository root: `docker compose up -d --build`.

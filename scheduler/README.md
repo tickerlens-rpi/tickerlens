@@ -32,8 +32,9 @@ A ticker whose overview the scrapper cannot find is dropped at once, with its da
 ## Tests
 
 ```
-pip install -r requirements-dev.txt
-python -m pytest -v
+pip install -r requirements.txt pytest ruff
+python -m pytest -q
+ruff check --select F,E9 .
 ```
 
 Offline, except the Postgres tests that run when `TEST_DATABASE_URL` is set. Those drop the `cache` and `watchlist` tables, so point it at a throwaway database.
