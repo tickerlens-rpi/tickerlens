@@ -35,8 +35,11 @@ docker compose up -d --build
 ```
 
 Set `DOMAIN`, `DUCKDNS_DOMAIN` and `DUCKDNS_TOKEN` in `.env` first (see
-`.env.example`). Open your domain over HTTPS, adding the public port your router
-forwards to port 443 on this machine, for example `https://example.dev:44444`.
+`.env.example`). Open your domain over plain HTTPS, for example
+`https://example.dev`, with no port. Visitors connect to Cloudflare on port 443,
+and a Cloudflare Origin Rule sends the request on to the public port your
+router forwards to port 443 on this machine (see
+[proxy/README.md](proxy/README.md)).
 The frontend's nginx forwards `/api/` to the central API, so the browser only
 ever talks to one origin.
 

@@ -112,6 +112,12 @@ Cloudflare nameservers Cloudflare gives you when you add the site.
 | DNS `CNAME` record | `_acme-challenge` → `DUCKDNS_DOMAIN`, **DNS only** |
 | Rules → Origin Rules | Hostname equals `DOMAIN` → **Destination port** = the router's public port |
 | SSL/TLS → Overview | **Full (strict)**, since Caddy has a valid certificate |
+| SSL/TLS → Edge Certificates | **Always Use HTTPS** on, so an `http://` visit is redirected before anything (such as a ChatGPT token) is sent |
+
+Visitors always use `https://DOMAIN` with no port: browsers only reach
+Cloudflare on its standard ports, and the Origin Rule is what moves the request
+to the router's public port. A `.dev` domain is also on browsers' HSTS preload
+list, so browsers never try plain HTTP for it.
 
 ### 4. Router
 
@@ -140,9 +146,9 @@ Watch the certificate being issued with `docker logs -f proxy-container`.
 | File | Purpose |
 | --- | --- |
 | [`Dockerfile`](Dockerfile) | Builds Caddy with the DuckDNS DNS plugin using `xcaddy`. |
-| [`../Caddyfile`](../Caddyfile) | Site address, DNS-01 settings, and the `reverse_proxy` to `frontend:80`. Streaming is kept on (`flush_interval -1`) for AI answers. |
+| [`../Caddyfile`](../Caddyfile) | Site address, DNS-01 settings, and the `reverse_proxy` to `frontend:80`. Trusts Cloudflare's IP ranges, reads the visitor's address from `CF-Connecting-IP` and passes it on as `X-Real-IP`. Streaming is kept on (`flush_interval -1`) for AI answers. |
 | [`../docker-compose.yml`](../docker-compose.yml) | Publishes `443`, mounts the Caddyfile, and keeps certificates in `caddy_data`. |
-| [`../frontend/nginx.conf`](../frontend/nginx.conf) | Trusts Caddy's `X-Forwarded-For` and keeps redirects relative so they stay on the public port. |
+| [`../frontend/nginx.conf`](../frontend/nginx.conf) | Takes the visitor's address from Caddy's `X-Real-IP` (for the per-client relay limit) and keeps redirects relative so they stay on the public port. |
 
 ## Troubleshooting
 

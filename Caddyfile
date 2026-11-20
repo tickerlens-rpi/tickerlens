@@ -5,6 +5,13 @@
 	servers {
 		# Only 443/tcp is published, so do not offer HTTP/3.
 		protocols h1 h2
+
+		# Visitors arrive through Cloudflare. Trust its edge addresses
+		# (https://www.cloudflare.com/ips/, check them now and then) and take
+		# the visitor's address from CF-Connecting-IP. A request from anywhere
+		# else keeps its own address, so the header cannot be spoofed.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
 	}
 }
 
@@ -17,6 +24,9 @@
 	}
 
 	reverse_proxy frontend:80 {
+		# The visitor's address (see client_ip_headers above) for nginx's
+		# per-client relay limit. Set here, so a visitor cannot supply it.
+		header_up X-Real-IP {client_ip}
 		# Stream ChatGPT answers to the browser as they arrive.
 		flush_interval -1
 	}

@@ -1,5 +1,6 @@
 """Offline tests: no network, no API keys. Run from scrapper_api:  python -m pytest tests/test_api.py -v"""
 from datetime import date, datetime, timedelta, timezone
+import time
 import httpx
 import pandas as pd
 import pytest
@@ -11,6 +12,7 @@ from app.errors import ProviderError, TickerNotFound
 from app.finnhub import FinnhubProvider, _exchange_name, _publisher_from_url
 from app.main import app, get_market_provider, get_news_provider, normalize_ticker
 from app.models import Article, PricePoint
+from app.news_links import LinkResolver
 from app.yahoo import YahooPriceProvider, _weekly
 
 
@@ -146,10 +148,20 @@ METRICS = {"metric": {"peBasicExclExtraTTM": 34.8, "epsBasicExclExtraItemsTTM": 
 QUOTE = {"c": 231.45, "dp": 1.2043}
 
 
+class FakeLinks:
+    """Stands in for LinkResolver in the FinnhubProvider tests; LinkResolver has its own tests."""
+
+    def __init__(self, redirects=None):
+        self.redirects, self.asked = redirects or {}, []
+
+    def resolve(self, urls, deadline):
+        self.asked.append(list(urls))
+        return {u: self.redirects[u] for u in urls if u in self.redirects}
+
+
 def finnhub_with(monkeypatch, responder, redirects=None):
-    provider = FinnhubProvider("secret-key")
+    provider = FinnhubProvider("secret-key", links=FakeLinks(redirects))
     monkeypatch.setattr(provider, "_http_get", responder)
-    monkeypatch.setattr(provider, "_redirect_target", lambda url: (redirects or {}).get(url))
     return provider
 
 
@@ -268,6 +280,113 @@ def test_finnhub_yahoo_label_replaced_by_the_real_publisher(monkeypatch):
 ])
 def test_publisher_from_url(url, expected):
     assert _publisher_from_url(url) == expected
+
+
+def _news_item(n, source="Yahoo", url=None):
+    return {"headline": f"H{n}", "url": url or f"https://finnhub.io/api/news?id={n}", "source": source,
+            "datetime": 1_790_000_000 - n}
+
+
+def test_finnhub_malformed_url_does_not_break_the_news(monkeypatch):
+    data = [_news_item(0, url="https://[finnhub.io/api/news?id=0"), _news_item(1), _news_item(2, source="CNBC")]
+    redirects = {"https://finnhub.io/api/news?id=1": "https://www.reuters.com/a"}
+    arts = finnhub_with(monkeypatch, lambda p, q: data, redirects).get_news("AAPL", 5)
+    assert [a.publisher for a in arts] == ["Yahoo", "Reuters", "CNBC"]
+
+
+def test_finnhub_resolves_a_picked_article_beyond_the_first_batch(monkeypatch):
+    # limit 2 resolves ids 0-3 first: all Benzinga, so spreading picks id 4, still labelled Yahoo.
+    data = [_news_item(n) for n in range(6)]
+    redirects = {f"https://finnhub.io/api/news?id={n}": f"https://www.benzinga.com/{n}" for n in range(4)}
+    redirects["https://finnhub.io/api/news?id=4"] = "https://stocktwits.com/4"
+    provider = finnhub_with(monkeypatch, lambda p, q: data, redirects)
+    arts = provider.get_news("AAPL", 2)
+    assert [(a.headline, a.publisher) for a in arts] == [("H0", "Benzinga"), ("H4", "Stocktwits")]
+    assert provider._links.asked[1] == ["https://finnhub.io/api/news?id=4"]
+
+
+def test_finnhub_yahoo_and_yahoo_finance_count_as_one_publisher(monkeypatch):
+    data = [_news_item(0), _news_item(1), _news_item(2, source="CNBC")]  # id 1 cannot be resolved
+    redirects = {"https://finnhub.io/api/news?id=0": "https://finance.yahoo.com/a"}
+    arts = finnhub_with(monkeypatch, lambda p, q: data, redirects).get_news("AAPL", 2)
+    assert [a.publisher for a in arts] == ["Yahoo Finance", "CNBC"]
+
+
+# ---- LinkResolver against mocked HTTP (no network) ----
+
+def link_resolver(routes):
+    """routes: url -> httpx.Response, an exception, or a list of them returned in turn."""
+    calls = []
+
+    def handler(request):
+        url = str(request.url)
+        calls.append(url)
+        route = routes[url]
+        result = route.pop(0) if isinstance(route, list) else route
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
+    return LinkResolver(client=client), calls
+
+
+def redirect(location):
+    return httpx.Response(302, headers={"location": location})
+
+
+def soon():
+    return time.monotonic() + 5
+
+
+def test_link_resolver_absolute_relative_and_protocol_relative_redirects():
+    resolver, _ = link_resolver({
+        "https://finnhub.io/api/news?id=abs": redirect("https://www.reuters.com/a"),
+        "https://finnhub.io/api/news?id=rel": redirect("/api/news/go?id=rel"),
+        "https://finnhub.io/api/news/go?id=rel": redirect("https://www.cnbc.com/b"),
+        "https://finnhub.io/api/news?id=proto": redirect("//www.wsj.com/c"),
+    })
+    assert resolver.resolve(["https://finnhub.io/api/news?id=abs", "https://finnhub.io/api/news?id=rel",
+                             "https://finnhub.io/api/news?id=proto"], soon()) == {
+        "https://finnhub.io/api/news?id=abs": "https://www.reuters.com/a",
+        "https://finnhub.io/api/news?id=rel": "https://www.cnbc.com/b",
+        "https://finnhub.io/api/news?id=proto": "https://www.wsj.com/c",
+    }
+
+
+def test_link_resolver_rejects_non_article_targets():
+    resolver, _ = link_resolver({
+        "https://finnhub.io/api/news?id=page": httpx.Response(200),
+        "https://finnhub.io/api/news?id=js": redirect("javascript:alert(1)"),
+        "https://finnhub.io/api/news?id=loop": redirect("/api/news?id=loop"),
+    })
+    urls = ["https://finnhub.io/api/news?id=page", "https://finnhub.io/api/news?id=js",
+            "https://finnhub.io/api/news?id=loop"]
+    assert resolver.resolve(urls, soon()) == {}
+
+
+def test_link_resolver_retries_429_then_resolves():
+    url = "https://finnhub.io/api/news?id=busy"
+    resolver, calls = link_resolver({url: [httpx.Response(429), redirect("https://www.reuters.com/a")]})
+    assert resolver.resolve([url], soon()) == {url: "https://www.reuters.com/a"}
+    assert len(calls) == 2
+
+
+def test_link_resolver_caches_answers_but_not_network_errors():
+    ok, down = "https://finnhub.io/api/news?id=ok", "https://finnhub.io/api/news?id=down"
+    resolver, calls = link_resolver({
+        ok: redirect("https://www.reuters.com/a"),
+        down: [httpx.ConnectError("boom"), redirect("https://www.cnbc.com/b")],
+    })
+    assert resolver.resolve([ok, down], soon()) == {ok: "https://www.reuters.com/a"}
+    assert resolver.resolve([ok, down], soon()) == {ok: "https://www.reuters.com/a", down: "https://www.cnbc.com/b"}
+    assert calls.count(ok) == 1 and calls.count(down) == 2
+
+
+def test_link_resolver_stops_at_the_deadline():
+    resolver, calls = link_resolver({})
+    assert resolver.resolve(["https://finnhub.io/api/news?id=late"], time.monotonic() - 1) == {}
+    assert calls == []
 
 
 def test_finnhub_empty_and_wrong_news_shape(monkeypatch):
