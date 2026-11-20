@@ -56,6 +56,21 @@ describe('PriceChart', () => {
     expect(container.querySelectorAll('svg path')).toHaveLength(2);
   });
 
+  it('colours the line by how the price moved over the range', async () => {
+    const client = new SampleResearchClient();
+    vi.spyOn(client, 'getPriceHistory').mockResolvedValue([
+      {date: '2026-09-20', close: 100},
+      {date: '2026-10-20', close: 80},
+    ]);
+    const {container} = renderChart(client);
+    await screen.findByRole('img', {name: /past month/});
+
+    const section = container.querySelector<HTMLElement>('section.chart');
+    expect(section?.style.getPropertyValue('--series-price')).toBe(
+      'color-mix(in oklab, var(--down) 100%, var(--trend-flat))',
+    );
+  });
+
   it('reads out the close for each day from the keyboard', async () => {
     const user = userEvent.setup();
     renderChart();

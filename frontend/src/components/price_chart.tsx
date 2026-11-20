@@ -1,9 +1,10 @@
 import {useCallback, useId, useState} from 'react';
-import type {KeyboardEvent, PointerEvent} from 'react';
+import type {CSSProperties, KeyboardEvent, PointerEvent} from 'react';
 import {CHART_RANGES} from '../data/research';
 import type {ChartRange, PricePoint} from '../data/research';
 import {useResearchClient} from '../data/research_context';
 import {spreadIndexes, valueAxis} from '../lib/chart_scale';
+import {trendColor} from '../lib/chart_trend';
 import {addDays, formatDay, parseDay} from '../lib/dates';
 import {
   daysBetween,
@@ -74,9 +75,16 @@ export function PriceChart({ticker, companyName}: PriceChartProps) {
     first && last
       ? `${companyName} closing prices ${period}: ${formatPrice(first.close)} on ${formatLongDate(first.date)} to ${formatPrice(last.close)} on ${formatLongDate(last.date)}.`
       : '';
+  const change = changeAcross(points);
+  // The line, area and dots take their colour from this property (see
+  // research.css): greener the more the price rose, redder the more it fell.
+  const trendStyle =
+    points.length >= 2
+      ? ({'--series-price': trendColor(change, shown.range)} as CSSProperties)
+      : undefined;
 
   return (
-    <section className="chart" aria-labelledby={titleId}>
+    <section className="chart" aria-labelledby={titleId} style={trendStyle}>
       <div className="chart__head">
         <h2 className="research__heading" id={titleId}>
           Price
@@ -97,7 +105,7 @@ export function PriceChart({ticker, companyName}: PriceChartProps) {
       </div>
       {first && last && (
         <p className="chart__summary">
-          <strong>{formatChange(changeAcross(points))}</strong> {period}
+          <strong>{formatChange(change)}</strong> {period}
         </p>
       )}
       <div
